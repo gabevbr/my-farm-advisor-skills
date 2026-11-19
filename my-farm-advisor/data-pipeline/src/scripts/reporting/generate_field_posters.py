@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import textwrap
@@ -81,6 +82,27 @@ _UTM_WEST = "EPSG:32615"
 _UTM_EAST = "EPSG:32616"
 _DEFAULT_GROWER = os.environ.get("AG_GROWER_SLUG", "default-grower")
 _DEFAULT_FARM = os.environ.get("AG_FARM_SLUG", "default-farm")
+
+_CORN_BELT_STATES = {
+    "IA", "IL", "IN", "KS", "KY", "MI", "MN", "MO", "NE", "ND", "OH", "SD", "WI",
+}
+
+
+def _region_label() -> str:
+    """Region shown in the poster title, derived from the farm's own state.
+
+    Previously hard-coded to "Iowa Corn Belt", which mislabelled every
+    non-Iowa farm. Falls back to a neutral label when farm.json is absent.
+    """
+    farm_json = _REPO / "growers" / _DEFAULT_GROWER / "farms" / _DEFAULT_FARM / "farm.json"
+    state = ""
+    try:
+        state = str(json.loads(farm_json.read_text()).get("state", "")).strip().upper()
+    except Exception:
+        state = ""
+    if not state:
+        return "Corn Belt"
+    return f"{state} Corn Belt" if state in _CORN_BELT_STATES else state
 _DEFAULT_FARM_NAME = os.environ.get("AG_FARM_NAME", "Default Farm")
 _DEFAULT_INVENTORY = _REPO / "growers" / _DEFAULT_GROWER / "farms" / _DEFAULT_FARM / "manifests" / "field-inventory.csv"
 _FIELD_INVENTORY = Path(os.environ.get("AG_INVENTORY_CSV", str(_DEFAULT_INVENTORY)))
@@ -445,7 +467,7 @@ def _render_field_poster(
     fig = plt.figure(figsize=(28, 36))
     fig.patch.set_facecolor("#fafaf9")
     fig.suptitle(
-        f"Field Intelligence Report — {field_id[-8:]}  ·  {float(field_row.get('area_acres', 0)):.1f} ac  ·  Iowa Corn Belt",
+        f"Field Intelligence Report — {field_id[-8:]}  ·  {float(field_row.get('area_acres', 0)):.1f} ac  ·  {_region_label()}",
         fontsize=_POSTER_TITLE_SIZE,
         fontweight="bold",
         y=0.993,

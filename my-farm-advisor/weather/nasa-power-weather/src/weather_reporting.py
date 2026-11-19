@@ -22,15 +22,25 @@ def prepare_weather_reporting(
 
 def summarize_weather_variability(weather: pd.DataFrame) -> pd.DataFrame:
     df = prepare_weather_reporting(weather)
-    grouped = df.groupby("field_id")
-    return grouped.agg(
+    # Annual precipitation is a per-year total that is then averaged across the
+    # years in the table. A flat groupby(...).sum() over every row reports the
+    # multi-year total as if it were one year (measured: 4,591 mm instead of
+    # 918 mm/yr on a 5-year Illinois extract).
+    annual_precip = (
+        df.groupby(["field_id", "year"])["PRECTOTCORR"]
+        .sum()
+        .groupby("field_id")
+        .mean()
+        .rename("annual_precip_mm")
+    )
+    grouped = df.groupby("field_id").agg(
         avg_temp_c=("T2M", "mean"),
         avg_precip_mm=("PRECTOTCORR", "mean"),
-        annual_precip_mm=("PRECTOTCORR", "sum"),
         avg_gdd=("gdd", "mean"),
         max_gdd_cumulative=("gdd_cumulative", "max"),
         years=("year", "nunique"),
-    ).reset_index()
+    )
+    return grouped.join(annual_precip).reset_index()
 
 
 def _frost_markers(df: pd.DataFrame) -> tuple[float | None, float | None]:
