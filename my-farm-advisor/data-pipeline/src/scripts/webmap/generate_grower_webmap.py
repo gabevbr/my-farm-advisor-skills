@@ -24,7 +24,8 @@ Usage (run from the runtime source copy per the data-pipeline contract):
     ./.venv/bin/python src/scripts/webmap/generate_grower_webmap.py --all-growers
 
 The basemap needs internet (it is fetched by the browser, not this script).
-Field geometry is all that is embedded, so the HTML stays in the tens of KB.
+Field geometry plus its farm metadata is all that is embedded, so the HTML
+stays in the tens of KB.
 """
 
 from __future__ import annotations
@@ -444,7 +445,15 @@ def render_html(payload: dict) -> str:
         f"{field_count} fields \u00b7 {farm_count} farm" + ("" if farm_count == 1 else "s")
         + " \u00b7 click a field for details"
     )
-    data_json = json.dumps(payload["fields"], separators=(",", ":"), ensure_ascii=True)
+    # Exactly the keys the template reads. ``sources`` stays out on purpose:
+    # it holds absolute runtime paths, and the page must remain portable.
+    client_payload = {
+        "grower": payload["grower"],
+        "farms": payload["farms"],
+        "fields": payload["fields"],
+        "bounds": payload["bounds"],
+    }
+    data_json = json.dumps(client_payload, separators=(",", ":"), ensure_ascii=True)
     # A literal </script> inside any string would close the JSON block early.
     data_json = data_json.replace("</", "<\\/")
 

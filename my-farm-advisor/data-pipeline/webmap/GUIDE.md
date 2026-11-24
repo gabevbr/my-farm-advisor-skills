@@ -87,12 +87,12 @@ pipeline; this page deliberately shows the boundary file as written.
 
 ## Size and network expectations
 
-Geometry is embedded as JSON (6-decimal coordinates, no properties the page
-does not display) inside `<script type="application/json">` and parsed with
-`JSON.parse`, so there is no JS-literal escaping to get wrong. A six-field
-grower lands in the tens of KB. Tiles and the Leaflet 1.9.4 bundle are fetched
-by the browser at view time — an offline viewer sees the sidebar and field
-outlines but gray basemap.
+Fields are embedded as JSON (6-decimal coordinates) inside
+`<script type="application/json">`, alongside the grower, farm, and view-bounds
+metadata the page reads, and parsed with `JSON.parse`, so there is no
+JS-literal escaping to get wrong. A six-field grower lands in the tens of KB.
+Tiles and the Leaflet 1.9.4 bundle are fetched by the browser at view time —
+an offline viewer sees the sidebar and field outlines but gray basemap.
 
 ## Verification
 

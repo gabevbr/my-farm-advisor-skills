@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -148,6 +150,12 @@ def _inline_payload(document: str) -> dict:
     return json.loads(match.group(1))
 
 
+def _inline_script(document: str) -> str:
+    scripts = re.findall(r"<script>(.*?)</script>", document, re.DOTALL)
+    assert scripts, "inline map script is missing"
+    return scripts[-1]
+
+
 def _decimals(value) -> int:
     text = repr(float(value))
     return len(text.split(".")[1].rstrip("0")) if "." in text else 0
@@ -180,16 +188,32 @@ def test_grower_map_renders_every_field_and_is_portable() -> None:
                 assert meta["display_name"] in document, "field display name missing from page"
 
         payload = _inline_payload(document)
-        ids = [f["properties"]["field_id"] for f in payload["features"]]
+        # The page reads these four keys directly. Embedding only the
+        # FeatureCollection (the original bug) leaves data.fields undefined,
+        # so no polygon is drawn and data.farms.forEach throws — a blank map
+        # with an empty sidebar.
+        for key in ("grower", "farms", "fields", "bounds"):
+            assert key in payload, f"inline payload is missing {key!r}; the page reads data.{key}"
+        assert payload["fields"]["type"] == "FeatureCollection"
+        assert payload["grower"]["name"] == "Test Grower"
+        assert payload["bounds"] and len(payload["bounds"]) == 2
+
+        # Contract sweep: every data.<key> the inline script touches must be
+        # embedded, so a future template edit cannot outrun the payload.
+        referenced = set(re.findall(r"\bdata\.([A-Za-z_]\w*)", _inline_script(document)))
+        missing = sorted(referenced - set(payload))
+        assert not missing, f"inline script reads keys the payload does not carry: {missing}"
+
+        ids = [f["properties"]["field_id"] for f in payload["fields"]["features"]]
         assert sorted(ids) == sorted(BOXES), f"field IDs not all embedded: {ids}"
 
-        props = payload["features"][0]["properties"]
+        props = payload["fields"]["features"][0]["properties"]
         assert props["grower_name"] == "Test Grower"
         assert props["farm_name"] in {farm["display_name"] for farm in FARMS.values()}
         assert props["field_name"]
 
         # Coordinates are rounded, so the page stays small and diffable.
-        for feature in payload["features"]:
+        for feature in payload["fields"]["features"]:
             stack = [feature["geometry"]["coordinates"]]
             while stack:
                 node = stack.pop()
@@ -237,6 +261,122 @@ def test_grower_map_renders_every_field_and_is_portable() -> None:
         assert manifest["grower_slug"] == GROWER
 
 
+NODE_HARNESS = r"""
+const fs = require("fs");
+const vm = require("vm");
+const html = fs.readFileSync(process.argv[2], "utf8");
+
+const jsonMatch = html.match(/<script type="application\/json" id="map-data">([\s\S]*?)<\/script>/);
+const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].pop()[1];
+const payload = JSON.parse(jsonMatch[1]);
+
+const result = {
+  threw: null,
+  keys: Object.keys(payload),
+  geoType: null,
+  featureCount: 0,
+  buttons: 0,
+  bounds: null,
+};
+const buttons = [];
+let geoArg = null;
+
+function element(tag) {
+  const el = {
+    tagName: tag,
+    style: {},
+    className: "",
+    textContent: "",
+    children: [],
+    appendChild(child) { this.children.push(child); },
+    addEventListener() {},
+    type: "",
+  };
+  if (tag === "button") buttons.push(el);
+  return el;
+}
+
+const map = {
+  options: {},
+  fitBounds(bounds) { result.bounds = bounds; },
+  closePopup() {},
+};
+const chain = () => ({ addTo() { return this; } });
+
+global.document = {
+  getElementById(id) {
+    return id === "map-data" ? { textContent: jsonMatch[1] } : element("div");
+  },
+  createElement: element,
+  createTextNode(text) { return { nodeValue: text }; },
+};
+
+global.L = {
+  map: () => map,
+  tileLayer: () => chain(),
+  control: { layers: () => chain(), scale: () => chain() },
+  geoJSON: (arg) => { geoArg = arg; return chain(); },
+};
+
+try {
+  vm.runInThisContext(script);
+} catch (error) {
+  result.threw = error.constructor.name + ": " + error.message;
+}
+
+result.geoType = geoArg && geoArg.type;
+result.featureCount = geoArg && Array.isArray(geoArg.features) ? geoArg.features.length : 0;
+result.buttons = buttons.length;
+console.log(JSON.stringify(result));
+"""
+
+
+def test_inline_script_draws_fields_with_stub_leaflet() -> None:
+    """Execute the page's own script so a data/template mismatch fails here.
+
+    Structural asserts cannot see ``TypeError: ... reading 'forEach'`` — the
+    original bug passed every string check while rendering nothing. This runs
+    the inline script against a stub Leaflet/DOM: fields must reach
+    ``L.geoJSON`` as a FeatureCollection and one sidebar button per field must
+    be created.
+    """
+    if shutil.which("node") is None:
+        print("    skip  node not available; inline-script execution check skipped")
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data_root = _build_runtime(Path(tmp))
+        webmap.write_grower_map(data_root, GROWER)
+        html_path = (
+            data_root / "growers" / GROWER / "derived" / "dashboards"
+            / f"{GROWER}_grower_map.html"
+        )
+        harness = Path(tmp) / "harness.js"
+        harness.write_text(NODE_HARNESS, encoding="utf-8")
+
+        proc = subprocess.run(
+            ["node", str(harness), str(html_path)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert proc.returncode == 0, f"node harness failed: {proc.stderr.strip()}"
+        result = json.loads(proc.stdout.strip().splitlines()[-1])
+
+        assert result["threw"] is None, f"inline script threw at load: {result['threw']}"
+        assert set(result["keys"]) >= {"grower", "farms", "fields", "bounds"}
+        assert result["geoType"] == "FeatureCollection", (
+            f"L.geoJSON received {result['geoType']!r}; the payload shape is wrong"
+        )
+        assert result["featureCount"] == len(BOXES), (
+            f"only {result['featureCount']}/{len(BOXES)} fields reached the map layer"
+        )
+        assert result["buttons"] == len(BOXES), (
+            f"sidebar built {result['buttons']}/{len(BOXES)} field buttons"
+        )
+        assert result["bounds"] and len(result["bounds"]) == 2, "map never fitted to the fields"
+
+
 def test_grower_without_boundaries_fails_loudly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         data_root = Path(tmp) / "data-pipeline"
@@ -251,5 +391,6 @@ def test_grower_without_boundaries_fails_loudly() -> None:
 
 if __name__ == "__main__":
     test_grower_map_renders_every_field_and_is_portable()
+    test_inline_script_draws_fields_with_stub_leaflet()
     test_grower_without_boundaries_fails_loudly()
     print("ok: grower webmap regression checks passed")
