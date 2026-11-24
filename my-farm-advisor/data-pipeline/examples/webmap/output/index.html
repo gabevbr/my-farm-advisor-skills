@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grower field maps — My Farm Advisor</title>
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --panel:#f8fafc; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:3rem 1.25rem; font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         color:var(--ink); background:#f1f5f9; }
+  main { max-width:44rem; margin:0 auto; }
+  h1 { margin:0 0 .25rem; font-size:1.6rem; letter-spacing:-0.01em; }
+  p.lede { margin:0 0 2rem; color:var(--muted); font-size:.95rem; }
+  a.card { display:block; padding:1rem 1.25rem; margin-bottom:.75rem; background:#fff; border:1px solid var(--line);
+           border-radius:10px; color:var(--ink); text-decoration:none; }
+  a.card:hover { border-color:var(--accent); box-shadow:0 1px 3px rgba(15,23,42,.08); }
+  a.card strong { display:block; font-size:1rem; }
+  a.card span { display:block; margin-top:.15rem; color:var(--muted); font-size:.85rem; }
+  footer { margin-top:2rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.78rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Grower field maps</h1>
+  <p class="lede">Interactive, self-contained field maps — satellite basemap with an OpenStreetMap toggle.</p>
+
+  <a class="card" href="il-grower_grower_map.html">
+    <strong>il-grower</strong>
+    <span>Illinois Demo Farm · Iroquois County, IL · 3 fields</span>
+  </a>
+  <a class="card" href="ia-grower_grower_map.html">
+    <strong>ia-grower</strong>
+    <span>Iowa Demo Farm · Kossuth County, IA · 3 fields</span>
+  </a>
+
+  <footer>
+    Boundaries: USDA Crop Sequence Boundaries (demo farms). Basemap tiles load from the viewer's browser.
+    Generated fixtures carry no USDA parcel identifiers — see <code>README.md</code>.
+  </footer>
+</main>
+</body>
+</html>
