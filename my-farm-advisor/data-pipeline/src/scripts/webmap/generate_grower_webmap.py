@@ -23,6 +23,15 @@ Usage (run from the runtime source copy per the data-pipeline contract):
     ./.venv/bin/python src/scripts/webmap/generate_grower_webmap.py --grower il-grower
     ./.venv/bin/python src/scripts/webmap/generate_grower_webmap.py --all-growers
 
+Publishing a copy as a repository example fixture (one file, no manifest):
+
+    ./.venv/bin/python src/scripts/webmap/generate_grower_webmap.py \
+        --grower il-grower --public-fixture --out <repo>/examples/webmap/output/il-grower_grower_map.html
+
+``--public-fixture`` drops the properties that tie a parcel to a real USDA
+record (``csb_id``, ``source``, ``state_fips``, ``county_fips``). Runtime output
+keeps them; only the published copy is minimized.
+
 The basemap needs internet (it is fetched by the browser, not this script).
 Field geometry plus its farm metadata is all that is embedded, so the HTML
 stays in the tens of KB.
@@ -54,6 +63,11 @@ PALETTE = [
     "#2563eb", "#dc2626", "#059669", "#d97706",
     "#7c3aed", "#0891b2", "#be185d", "#4d7c0f",
 ]
+# Parcel-identifying properties that stay in runtime output but never ship in a
+# published fixture: ``csb_id`` resolves the same parcel in USDA's public
+# browser, and the FIPS pair narrows it to a county. The map renders and reads
+# identically without them; only the popup's source line loses detail.
+PUBLIC_FIXTURE_DROP = ("csb_id", "source", "state_fips", "county_fips")
 
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -324,7 +338,12 @@ def _field_display_names(farm_root: Path) -> dict[str, str]:
     return names
 
 
-def collect_grower(data_root: Path, grower_slug: str, precision: int = DEFAULT_PRECISION) -> dict:
+def collect_grower(
+    data_root: Path,
+    grower_slug: str,
+    precision: int = DEFAULT_PRECISION,
+    public_fixture: bool = False,
+) -> dict:
     """Build the map payload for every farm and field under one grower."""
     grower_root = data_root / "growers" / grower_slug
     if not grower_root.is_dir():
@@ -391,6 +410,9 @@ def collect_grower(data_root: Path, grower_slug: str, precision: int = DEFAULT_P
                     "county": props.get("county") or props.get("county_name") or "",
                 }
             )
+            if public_fixture:
+                for key in PUBLIC_FIXTURE_DROP:
+                    props.pop(key, None)
             features.append({"type": "Feature", "properties": props, "geometry": geometry})
             farm_fields.append(
                 {
@@ -475,8 +497,11 @@ def write_grower_map(
     out_path: Path | None = None,
     precision: int = DEFAULT_PRECISION,
     max_kb: int = DEFAULT_MAX_KB,
+    public_fixture: bool = False,
 ) -> dict:
-    payload = collect_grower(data_root, grower_slug, precision=precision)
+    payload = collect_grower(
+        data_root, grower_slug, precision=precision, public_fixture=public_fixture
+    )
     document = render_html(payload)
     size_bytes = len(document.encode("utf-8"))
 
@@ -522,8 +547,12 @@ def write_grower_map(
         "generated_at": payload["generated_at"],
     }
     manifest_path = data_root / "growers" / grower_slug / "manifests" / "grower_webmap.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    # A published fixture is one self-contained file, not a runtime provenance
+    # record: the manifest describes local inputs by sha256 and has no business
+    # traveling with a copy that is meant to be committed.
+    if not public_fixture:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print(
         f"  {grower_slug}: {field_count} fields / {len(payload['farms'])} farm(s) "
@@ -568,6 +597,10 @@ def main() -> int:
                         help="Coordinate decimals to keep (default 6, ~0.1 m)")
     parser.add_argument("--max-kb", type=int, default=DEFAULT_MAX_KB,
                         help="Warn when the HTML exceeds this size (default 512)")
+    parser.add_argument("--public-fixture", action="store_true",
+                        help="Drop parcel identifiers (" + ", ".join(PUBLIC_FIXTURE_DROP)
+                             + ") and skip the manifest, for a copy meant to be "
+                               "committed and served publicly")
     args = parser.parse_args()
 
     data_root = _resolve_data_root(args.data_root)
@@ -595,6 +628,7 @@ def main() -> int:
             out_path=out_path,
             precision=args.precision,
             max_kb=args.max_kb,
+            public_fixture=args.public_fixture,
         )
     return 0
 

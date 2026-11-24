@@ -67,6 +67,7 @@ Single grower, or an explicit destination:
 | `--precision <n>` | `6` | coordinate decimals (~0.1 m) |
 | `--max-kb <n>` | `512` | warn (do not truncate) above this size |
 | `--data-root <path>` | `DATA_PIPELINE_DATA_ROOT` | runtime root; `…/data-pipeline` is appended when present |
+| `--public-fixture` | off | drop parcel identifiers and skip the manifest, for a copy meant to be committed |
 
 ## What the page does
 
@@ -94,13 +95,46 @@ JS-literal escaping to get wrong. A six-field grower lands in the tens of KB.
 Tiles and the Leaflet 1.9.4 bundle are fetched by the browser at view time —
 an offline viewer sees the sidebar and field outlines but gray basemap.
 
+## Publishing a copy (example fixture)
+
+A copy meant to be committed and served publicly is generated with
+`--public-fixture`, which:
+
+- removes `csb_id`, `source`, `state_fips`, and `county_fips` from every
+  feature's properties — the identifiers that would let a reader resolve the
+  parcel in USDA's own public browser. Geometry, crop, acreage, county/state
+  name, and the farm and grower labels are unchanged, so the page renders and
+  reads exactly the same;
+- skips the runtime manifest, so the artifact is one self-contained file rather
+  than a provenance record.
+
+Repository policy permits generated output at exactly one location, so a
+published copy belongs under `examples/webmap/output/`:
+
+```bash
+export DATA_PIPELINE_DATA_ROOT=$HOME/my-farm-advisor-runtime
+cd "${DATA_PIPELINE_DATA_ROOT}/data-pipeline"
+for slug in il-grower ia-grower; do
+  ./.venv/bin/python src/scripts/webmap/generate_grower_webmap.py \
+    --grower "$slug" --public-fixture \
+    --out <repo>/my-farm-advisor/data-pipeline/examples/webmap/output/${slug}_grower_map.html
+done
+```
+
+The runtime output at the contract path keeps every identifier; only the
+published copy is minimized. Re-run this after any template change so the
+fixture cannot drift from the generator.
+
 ## Verification
 
 `../src/scripts/tests/test_grower_webmap.py` builds a throwaway runtime and
 asserts the basemap and CDN URLs, the presence of every field ID, grower/farm/
 field names, popup field labels, 6-decimal coordinates, the `< 300 KB`
 ceiling, a correct `path_rel` in the manifest, and that no absolute runtime
-path leaks into either file.
+path leaks into either file. It also executes the inline script under Node
+against a stub Leaflet, and checks that a `--public-fixture` copy drops exactly
+the four parcel identifiers while leaving geometry and displayed properties
+untouched.
 
 ```bash
 cd my-farm-advisor/data-pipeline

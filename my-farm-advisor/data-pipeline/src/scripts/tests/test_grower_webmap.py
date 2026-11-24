@@ -112,6 +112,11 @@ def _build_runtime(root: Path) -> Path:
                         "crop": meta["crop"],
                         "area_acres": meta["area_acres"],
                         "source": "test_fixture",
+                        # Parcel-identifying attributes: runtime output keeps
+                        # them, a published fixture must not.
+                        "csb_id": f"17{field_id}000000000",
+                        "state_fips": "17",
+                        "county_fips": "075",
                     },
                     "geometry": geometry,
                 }
@@ -377,6 +382,65 @@ def test_inline_script_draws_fields_with_stub_leaflet() -> None:
         assert result["bounds"] and len(result["bounds"]) == 2, "map never fitted to the fields"
 
 
+def test_public_fixture_drops_parcel_identifiers() -> None:
+    """A published copy must not carry USDA parcel identifiers.
+
+    ``csb_id`` resolves the same parcel in USDA's public browser, so shipping it
+    in a committed fixture attributes the demo to a specific real field. Runtime
+    output keeps every identifier for provenance; only the published copy is
+    minimized, and it must stay visually identical — same geometry, same
+    displayed properties.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        data_root = _build_runtime(Path(tmp))
+        webmap.write_grower_map(data_root, GROWER)
+        runtime = _inline_payload(
+            (
+                data_root / "growers" / GROWER / "derived" / "dashboards"
+                / f"{GROWER}_grower_map.html"
+            ).read_text(encoding="utf-8")
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        data_root = _build_runtime(Path(tmp))
+        out = Path(tmp) / "published_grower_map.html"
+        webmap.write_grower_map(data_root, GROWER, out_path=out, public_fixture=True)
+        published = _inline_payload(out.read_text(encoding="utf-8"))
+
+        # A fixture is one self-contained file, not a provenance record.
+        manifest = data_root / "growers" / GROWER / "manifests" / "grower_webmap.json"
+        assert not manifest.exists(), "a published fixture must not write a runtime manifest"
+
+    assert webmap.PUBLIC_FIXTURE_DROP, "redaction list must not be empty"
+    for key in webmap.PUBLIC_FIXTURE_DROP:
+        assert key in runtime["fields"]["features"][0]["properties"], (
+            f"test fixture lacks {key!r}; the redaction assertion would be vacuous"
+        )
+        assert key not in published["fields"]["features"][0]["properties"], (
+            f"published fixture still carries {key!r}"
+        )
+
+    # Everything the page draws or prints survives the redaction.
+    runtime_props = runtime["fields"]["features"][0]["properties"]
+    published_props = published["fields"]["features"][0]["properties"]
+    for key in ("field_id", "field_name", "farm_name", "farm_slug",
+                "grower_name", "crop", "area_acres", "county", "state"):
+        assert published_props.get(key) == runtime_props.get(key), (
+            f"redaction changed {key!r}, which the map displays"
+        )
+    assert published["bounds"] == runtime["bounds"]
+    assert published["farms"] == runtime["farms"]
+
+    # Geometry and every other property are untouched: only the four keys go.
+    assert len(published["fields"]["features"]) == len(runtime["fields"]["features"])
+    for before, after in zip(runtime["fields"]["features"], published["fields"]["features"]):
+        assert after["geometry"] == before["geometry"], "redaction altered geometry"
+        dropped = set(before["properties"]) - set(after["properties"])
+        assert dropped <= set(webmap.PUBLIC_FIXTURE_DROP), (
+            f"redaction dropped unexpected properties: {sorted(dropped)}"
+        )
+
+
 def test_grower_without_boundaries_fails_loudly() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         data_root = Path(tmp) / "data-pipeline"
@@ -392,5 +456,6 @@ def test_grower_without_boundaries_fails_loudly() -> None:
 if __name__ == "__main__":
     test_grower_map_renders_every_field_and_is_portable()
     test_inline_script_draws_fields_with_stub_leaflet()
+    test_public_fixture_drops_parcel_identifiers()
     test_grower_without_boundaries_fails_loudly()
     print("ok: grower webmap regression checks passed")

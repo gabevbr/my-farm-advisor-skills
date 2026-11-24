@@ -25,7 +25,9 @@ figure conventions, read `../../admin/interactive-web-map/GUIDE.md` and
   fetched by the viewer's browser.
 - Output goes to `growers/<grower>/derived/dashboards/<grower>_grower_map.html`
   with a sibling `growers/<grower>/manifests/grower_webmap.json`. Keep both out
-  of Git; they are runtime artifacts.
+  of Git; they are runtime artifacts. The single sanctioned exception is a
+  `--public-fixture` copy under `examples/webmap/output/`, which carries no
+  manifest and no parcel identifiers — see `GUIDE.md`.
 - Provenance uses `path_rel` only (root-relative against
   `${DATA_PIPELINE_DATA_ROOT}/data-pipeline`). Never write absolute runtime
   paths into the HTML or the manifest — the test asserts this.
