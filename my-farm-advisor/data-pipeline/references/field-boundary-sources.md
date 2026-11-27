@@ -38,6 +38,13 @@ area_ha_est, crop, area_acres` (+ `source`, and source-specific ids like
 * `--bbox` on ALL ingest scripts is `S W N E`. Getting the order wrong scans
   the whole state — sanity-check county names against the farm's state before
   accepting fields.
+* **County bboxes overlap neighbours.** For a county-scoped farm (expansion or
+  demo grower) also pass `--county-name` (CSB `administrative_area_level_2`)
+  and `--state-fips` (CSB id prefix): the bbox alone pulls in the largest
+  fields from adjacent counties and even across state lines, and the seed step
+  would then mislabel them. Both filters are journalled in the provenance
+  manifest. Worked example:
+  [`assignment-2-dataset-expansion.md`](assignment-2-dataset-expansion.md).
 
 ## AU / ON / EU / anywhere OSM maps farms — Overpass (`download_osm_fields.py`)
 

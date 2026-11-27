@@ -68,6 +68,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--country", default="US")
     ap.add_argument("--state", default="")
     ap.add_argument("--year", default="")
+    ap.add_argument(
+        "--county-name",
+        default="",
+        help="Keep only fields whose CSB administrative_area_level_2 matches this "
+        "county name (case-insensitive). The bbox alone overlaps neighbouring "
+        "counties, so expansion runs must filter on the county attribute.",
+    )
+    ap.add_argument(
+        "--state-fips",
+        default="",
+        help="Keep only fields whose CSB id starts with this 2-digit state FIPS. "
+        "Guards against bbox windows that spill across a state line.",
+    )
     args = ap.parse_args(argv)
 
     grower = os.environ.get("AG_GROWER_SLUG") or sys.exit("AG_GROWER_SLUG required")
@@ -113,6 +126,13 @@ def main(argv: list[str] | None = None) -> int:
             poly = wkb.loads(geom)
             bb = poly.bounds
             if bb[2] > xmin and bb[0] < xmax and bb[3] > ymin and bb[1] < ymax:
+                if args.county_name and (
+                    str(county).strip().casefold()
+                    != args.county_name.strip().casefold()
+                ):
+                    continue
+                if args.state_fips and not str(fid).startswith(args.state_fips):
+                    continue
                 ha = poly.area / 10000.0  # projected CRS is equal-area
                 if ha >= args.min_area_ha:
                     rows.append((fid, crop, county, ha, poly))
@@ -173,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         "license": "CC-BY-4.0 (FIBOA); USDA public (CSB)",
         "file_crs": crs.name,
         "bbox": args.bbox,
+        "county_filter": args.county_name or None,
+        "state_fips_filter": args.state_fips or None,
         "row_groups_read": len(sel),
         "total_row_groups": pf.metadata.num_row_groups,
         "min_area_ha": args.min_area_ha,
