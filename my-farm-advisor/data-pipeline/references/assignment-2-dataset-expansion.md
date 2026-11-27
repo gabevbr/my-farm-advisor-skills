@@ -115,3 +115,17 @@ Boundaries, weather, CDL, and shared caches are written under
 Boundary staging is idempotent (merge by `field_id`), imagery skips reusable
 manifests, and posters are cached by input fingerprint. Re-run the interrupted
 farm/step; use `AG_FORCE=1` only for code changes.
+
+### Farm-level weather cache covers fields, not just years
+
+Expanding a farm re-runs the weather step over the *new* boundary file. The
+cache key is the farm weather CSV for the year span, which hides a trap: the
+Assignment 1 table (3 fields) exists, so the step could skip the NASA POWER
+fetch and then re-stage it, leaving the seven new fields with header-only
+`weather/daily_weather.csv` files while the pipeline still reported success.
+`download_weather.py` now treats field coverage as part of the cache contract:
+if the cached table misses any current field it logs `refresh weather fetch`
+and refetches the whole farm. Regression test:
+`src/scripts/tests/test_weather_cache_coverage.py`. Always check per-field row
+counts after an expansion (1,826 rows = 5 years of daily data), not just that
+the file exists.
