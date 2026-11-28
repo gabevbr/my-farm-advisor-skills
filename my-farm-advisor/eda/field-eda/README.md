@@ -20,6 +20,7 @@ separate steps that consume these outputs.
 | CDL | Is rotation diversity different across growers? | — | `stats-cdl.csv` |
 | Weather | What does the seasonal cycle look like by grower? | F5 | `stats-weather.csv` |
 | Weather | How do seasonal water and heat co-vary? | F6 | `stats-weather.csv` |
+| Geospatial | Where are the sampled fields, and what crop is in each? | F7 | `field-metrics.csv` |
 
 The full encoding and intended story for each figure is in
 [references/figure-specs.md](references/figure-specs.md). Test choices and results are
@@ -56,7 +57,8 @@ Output defaults to `${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-
 │   ├── F3-cdl-rotation-heatmap.png
 │   ├── F4-cdl-composition.png
 │   ├── F5-weather-climatology.png
-│   └── F6-weather-precip-vs-gdd.png
+│   ├── F6-weather-precip-vs-gdd.png
+│   └── F7-geospatial-field-map.png
 ├── tables/
 │   ├── field-metrics.csv
 │   ├── stats-boundaries.csv
@@ -99,6 +101,11 @@ Exact columns, dtypes, and validation warnings are in
 - **Weather.** Growing season is April 1–October 31. GDD uses base 10 °C with a 30 °C
   cap. Monthly precipitation is summed per field-month first and then averaged across
   the co-located fields, so a shared climate grid is not counted ten times.
+- **Geospatial.** F7 draws one panel per farm on a local UTM metre frame, auto-rotated
+  to the sampled-field cluster, with a true-north arrow and an Esri World Imagery
+  basemap under the footprints. The fields are colored by latest dominant crop. Because
+  the sample is county-wide (fields span tens of kilometres), per-field IDs would not be
+  legible at README size; they stay in F3/F4 and `field-metrics.csv`.
 
 ## Statistical posture
 
@@ -117,11 +124,12 @@ within Illinois. See [references/statistics.md](references/statistics.md).
 ## Figure quality gate
 
 Every figure is reviewed against the repository's five-point vision gate before it is
-accepted: no empty panels, correct field-map frame (not applicable to these
-non-map figures), legible labels at README size, color semantics matching the data
-type, and a title/annotation set that reads without the surrounding prose. The current
-verdict for all six figures, including the two defects found and fixed during review
-(F4 label overlap, F5 10× precipitation aggregation), is recorded in
+accepted: no empty panels, a correct field-map frame on F7 (local-metre axes,
+auto-rotation, north arrow, basemap under), legible labels at README size, color
+semantics matching the data type, and a title/annotation set that reads without the
+surrounding prose. The current verdict for all seven figures, including the defects
+found and fixed during review (F4 label overlap, F5 10× precipitation aggregation, F7
+axis collapse and halo scaling), is recorded in
 [references/figure-specs.md](references/figure-specs.md).
 
 ## Scope and non-goals

@@ -47,6 +47,12 @@ that was read, so a reviewed figure can be tied back to exact source tables.
 - **Palette** — Okabe–Ito colorblind-safe colors, aligned with the repository's
   colormap guidance. Corn, Soybeans, Grass/Pasture, and the unclassified residual use
   fixed, distinct colors; continuous variables are only used as positions, not ramps.
+- **Geospatial map (F7)** — built on the shared `data-pipeline/src/scripts/lib`
+  `field_frame.py` and `basemap.py` helpers (local UTM metre frame, auto-rotation,
+  true-north arrow, Esri World Imagery underlay). Those shared modules are imported
+  read-only; this package does not modify them. The map is county-scale because the
+  sampled fields span tens of kilometres, so per-field IDs live in F3/F4 and the field
+  table rather than on the map.
 
 ## Explicit non-sources
 

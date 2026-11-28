@@ -17,6 +17,7 @@ from .figures import (
     figure_rotation_heatmap,
     figure_shape_vs_area,
 )
+from .figures_map import figure_field_map
 from .loaders import LoadError, discover_farms, resolve_data_root
 from .manifest import build_manifest, write_manifest
 
@@ -122,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             figure_composition(dataset.fields, cdl_long, figures_dir / "F4-cdl-composition.png"),
             figure_climatology(dataset.fields, weather_long, figures_dir / "F5-weather-climatology.png"),
             figure_precip_vs_gdd(dataset.field_years, figures_dir / "F6-weather-precip-vs-gdd.png"),
+            figure_field_map(farms, dataset.fields, figures_dir / "F7-geospatial-field-map.png"),
         ]
 
     payload = build_manifest(

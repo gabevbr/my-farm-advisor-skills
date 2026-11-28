@@ -138,6 +138,13 @@ Same schema. Rows: pooled and per-grower Spearman correlations between season
 precipitation and season GDD, plus between-grower variance shares for each variable on
 farm-year means.
 
+### `figures/F7-geospatial-field-map.png`
+
+One panel per farm, built from the boundary file alone. The panel uses a local UTM metre
+frame and an Esri World Imagery basemap fetched at render time. If the basemap fetch
+fails, the panel keeps a plain background and the run continues; the manifest still
+lists the figure.
+
 ### `manifest.json`
 
 - `run_id`, `generated_at`, `data_root`

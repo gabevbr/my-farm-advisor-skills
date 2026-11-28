@@ -1,8 +1,9 @@
 # Field EDA Figure Specifications
 
-Six static figures, two per category. Each section states the question, the encoding,
-the story the figure is meant to tell, the caveat a reader must carry, and the review
-verdict from the 2026-11-27/28 render pass.
+Seven static figures: two per category (boundaries, CDL, weather) plus one geospatial
+map. Each section states the question, the encoding, the story the figure is meant to
+tell, the caveat a reader must carry, and the review verdict from the 2026-11-27/28
+render pass.
 
 All figures are 200 dpi PNGs, Agg backend, Okabe–Ito palette. Grower colors are keyed to
 state: Illinois `#0072B2`, Iowa `#D55E00`, Nebraska `#009E73`.
@@ -149,13 +150,46 @@ indicative only. The footnote states this and the sign flip.
 points) to lower left; p-values below 0.001 now print as `< 0.001`; the footnote makes the
 pooled-versus-within distinction explicit.
 
+## F7 — Field footprints and 2023 dominant crop
+
+**File:** `F7-geospatial-field-map.png`
+
+**Question.** Where are the sampled fields inside each grower's county, and what crop
+was on each in the latest CDL year?
+
+**Encoding.** One panel per farm, each on its own local UTM metre frame
+(`field_frame.frame_for`), auto-rotated to the sampled-field cluster and decorated with
+a true-north arrow. Footprints are filled by 2023 dominant crop (Corn, Soybeans,
+Grass/Pasture, Other) over an Esri World Imagery basemap. Each panel title states the
+state, farm, and crop counts.
+
+**Story.** The sampled fields are not one contiguous farm: they are scattered across
+roughly 30 × 42 km of each county, which is the top-10-by-area selection at work.
+Illinois is corn-heavy in 2023 (8 corn / 2 soybeans), Iowa is soybean-heavy (3 corn /
+7 soybeans), and Nebraska is split (5 corn / 5 soybeans). Read together with F3, the
+map shows that the rotation differences are spatial as well as temporal.
+
+**Caveat.** This is a county-scale distribution map, not a field close-up; individual
+footprints are a few pixels wide. Per-field IDs are therefore omitted for legibility and
+remain in F3/F4 and `field-metrics.csv`. The basemap is keyless Esri World Imagery; if
+tile access fails the panel keeps a plain background and the rest of the run continues.
+
+**Verdict.** Pass after redesign. The first render collapsed the x-axis because
+`view_extent` was called with the wrong argument order, and the 6 m basemap resolution
+was inappropriate for a 30 km extent; both were fixed. The halo was then thinned from a
+3.2 pt stroke (about 700 m at this scale) to 1 pt, the in-panel rotation callout was
+dropped because the axis note already carries the tilt, and per-field IDs were removed
+after they failed the README legibility check. The final panel keeps 15% viewport
+padding, local metre axes, per-panel north arrows, and a legible crop legend.
+
 ## Cross-figure conventions
 
 - Corn `#E69F00`, Soybeans `#56B4E9`, Grass/Pasture `#009E73`, Other/unclassified
   `#B0B0B0`, no data white with a grey edge.
 - Grower colors follow state, not alphabetical order, so a grower keeps one color across
-  F1, F2, F5, and F6.
+  F1, F2, F5, and F6. F7 uses the crop palette because panels are already separated by
+  grower.
 - No figure uses a continuous colormap for a categorical variable, and no figure uses a
   categorical palette for a continuous variable.
 - Grid lines are light grey and sit below the data; top and right spines are removed on
-  non-grid figures.
+  non-grid figures. F7 keeps metre tick axes because distance is read from them.

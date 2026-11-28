@@ -44,7 +44,7 @@ report the residual range. They are informational, not failures.
 
 ## Expected full-run output
 
-`${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-id>/` with 6 figures,
+`${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-id>/` with 7 figures,
 4 tables, and `manifest.json`:
 
 ```text
@@ -54,6 +54,7 @@ figures/F3-cdl-rotation-heatmap.png
 figures/F4-cdl-composition.png
 figures/F5-weather-climatology.png
 figures/F6-weather-precip-vs-gdd.png
+figures/F7-geospatial-field-map.png
 tables/field-metrics.csv
 tables/stats-boundaries.csv
 tables/stats-cdl.csv
@@ -71,7 +72,7 @@ from pathlib import Path
 root = Path(sys.argv[1])
 manifest = json.loads((root / "manifest.json").read_text())
 assert manifest["counts"] == {"fields": 30, "growers": 3, "farms": 3}
-assert len(manifest["outputs"]["figures"]) == 6
+assert len(manifest["outputs"]["figures"]) == 7
 assert len(manifest["outputs"]["tables"]) == 4
 for name in manifest["outputs"]["figures"]:
     assert (root / "figures" / name).stat().st_size > 0, name

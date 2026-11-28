@@ -23,8 +23,10 @@ routing and [README.md](README.md) for the human overview.
 - [`src/field_eda/stats.py`](src/field_eda/stats.py) — Holm correction,
   Kruskal–Wallis, Mann–Whitney with rank-biserial effect, Spearman with bootstrap CI,
   variance share.
-- [`src/field_eda/figures.py`](src/field_eda/figures.py) — the six static figures and
-  shared palette/style helpers.
+- [`src/field_eda/figures.py`](src/field_eda/figures.py) — the six statistical and
+  time/composition figures (F1–F6) and shared palette/style helpers.
+- [`src/field_eda/figures_map.py`](src/field_eda/figures_map.py) — F7, the three-panel
+  field-footprint map using the shared local-frame and basemap helpers.
 - [`src/field_eda/manifest.py`](src/field_eda/manifest.py) — input hashes, counts,
   environment versions, output inventory, warnings.
 

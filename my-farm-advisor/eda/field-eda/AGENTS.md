@@ -28,6 +28,10 @@ Working rules for agents editing or running this subtree.
   grower.
 - **Do not present pooled weather correlations as field-level responses.** The pooled
   precipitation–GDD sign can differ from within-grower signs. Report both.
+- **Keep F7 a county-scale map.** The sampled fields span tens of kilometres, so do not
+  add per-field ID labels unless the layout is redesigned for legibility. Keep the local
+  metre axes, per-panel north arrow, and basemap fallback; a tile failure must never
+  break the run.
 - **Keep p-values descriptive.** Small groups, multiple contrasts, and selection bias
   mean a p-value is evidence about this sample, not a population test.
 

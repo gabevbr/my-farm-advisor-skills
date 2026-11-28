@@ -15,6 +15,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from field_eda.figures import _monthly_by_grower  # noqa: E402
+from field_eda.figures_map import scripts_lib_dir  # noqa: E402
 
 
 def test_monthly_precip_averages_fields_not_sums() -> None:
@@ -40,6 +41,13 @@ def test_monthly_precip_averages_fields_not_sums() -> None:
     assert abs(july["temp_mean"] - 20.0) < 1e-9
 
 
+def test_scripts_lib_dir_exists() -> None:
+    lib = scripts_lib_dir()
+    assert (lib / "field_frame.py").is_file()
+    assert (lib / "basemap.py").is_file()
+
+
 if __name__ == "__main__":
     test_monthly_precip_averages_fields_not_sums()
+    test_scripts_lib_dir_exists()
     print("ok")

@@ -31,7 +31,7 @@ one-time artifact layered on top of these outputs.
 - Read [references/data-contract.md](references/data-contract.md) before pointing the
   tool at a new runtime or changing column expectations.
 - Read [references/figure-specs.md](references/figure-specs.md) for what each of the
-  six figures encodes and the story it is meant to tell.
+  seven figures encodes and the story it is meant to tell.
 - Read [references/statistics.md](references/statistics.md) for the test choices,
   effect sizes, pseudoreplication caveats, and the current result snapshot.
 - Read [examples/README.md](examples/README.md) to reproduce the Assignment 2 run.
