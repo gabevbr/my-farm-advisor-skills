@@ -7,7 +7,9 @@ CSV statistics tables.
 
 It is the analysis layer for the Assignment 2 field EDA. It is deliberately smaller
 than a reporting product: no dashboard, no HTML, no PDF, no soil analysis. Those are
-separate steps that consume these outputs.
+separate steps that consume these outputs. A worked consumer lives at the repository
+root in `reports/assignment-2-field-eda/`: it rebuilds a PDF reading guide from one
+run's `figures/`, `tables/` and `manifest.json`.
 
 ## What it answers
 

@@ -268,6 +268,9 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
         "ia_ne": pick(bounds, analysis="pairwise", comparison=f"{ia} vs {ne}"),
     }
     rho_shape, p_shape = spearmanr(fields["area_ha"], fields["compactness"])
+    compact_low = float(fields["compactness"].quantile(0.10))
+    compact_high = float(fields["compactness"].quantile(0.90))
+    least_compact = fields.nsmallest(2, "compactness")
 
     rot_omni = pick(cdl, analysis="omnibus", comparison="all growers")
     rot_pair = {
@@ -317,6 +320,34 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
     )
     diversity = fields["distinct_classes_mean"]
     first_year_counts = fields[f"crop_{cdl_years[0]}"].value_counts()
+    latest_counts = {
+        name: fields.loc[
+            fields["grower_name"] == name, f"crop_{cdl_years[-1]}"
+        ].value_counts()
+        for name in growers
+    }
+
+    def crop_mix_sentence() -> str:
+        parts = []
+        for name in growers:
+            counts = latest_counts[name]
+            corn = int(counts.get("Corn", 0))
+            soy = int(counts.get("Soybeans", 0))
+            if corn and soy:
+                label = (
+                    "split"
+                    if corn == soy
+                    else ("corn-heavy" if corn > soy else "soybean-heavy")
+                )
+            elif corn:
+                label = "all corn"
+            else:
+                label = "all soybeans"
+            state = name.replace(" Grower", "")
+            parts.append(f"{state} is {label} ({corn} corn, {soy} soybeans)")
+        if len(parts) == 1:
+            return parts[0]
+        return ", ".join(parts[:-1]) + " and " + parts[-1]
 
     # ---- document ------------------------------------------------------- #
     pdf = Report(orientation="P", unit="mm", format="A4")
@@ -473,8 +504,13 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
     para(
         pdf,
         f"Compactness does not track size: Spearman rho = {rho_shape:.2f} "
-        f"({ptext(p_shape)}, n = {n_fields}). Most fields sit between 0.15 and 0.55, so "
-        "shape varies at every size, and the two least compact fields are small.",
+        f"({ptext(p_shape)}, n = {n_fields}). The middle 80% of fields sit between "
+        f"{fnum(compact_low, 2)} and {fnum(compact_high, 2)}, so shape varies at every "
+        "size, and the two least compact fields are not small: "
+        + " and ".join(
+            f"{row.field_id} at {fnum(row.area_ha)} ha" for row in least_compact.itertuples()
+        )
+        + ".",
     )
 
     # ---- CDL ------------------------------------------------------------ #
@@ -610,8 +646,9 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
         f"{div_grower[il]['statistic']:+.2f} (IL), {div_grower[ia]['statistic']:+.2f} "
         f"(IA) and {div_grower[ne]['statistic']:+.2f} (NE). That is a negative result: "
         "this sample does not support a field-size effect on class diversity, and the "
-        "pooled sign flips between growers. Distinct-class counts range from "
-        f"{fnum(diversity.min())} to {fnum(diversity.max())} classes per field-year.",
+        "pooled sign flips between growers. Per-field means range from "
+        f"{fnum(diversity.min())} to {fnum(diversity.max())} distinct classes per "
+        "field-year.",
     )
 
     # ---- map ------------------------------------------------------------ #
@@ -629,8 +666,8 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
     para(
         pdf,
         "The map shows where the sampled fields sit inside each county and what was "
-        f"growing on them in {cdl_years[-1]}. Illinois is corn-heavy (8 corn, 2 soybeans), Iowa is "
-        "soybean-heavy (3 corn, 7 soybeans) and Nebraska is split (5 corn, 5 soybeans). "
+        f"growing on them in {cdl_years[-1]}. "
+        f"{crop_mix_sentence()}. "
         "The fields are not one contiguous farm: they are scattered across roughly 30 x "
         "42 km of each county, which is the top-10-by-area selection at work. Footprints "
         "are only a few pixels wide at this extent, so per-field IDs are omitted here "
@@ -650,9 +687,10 @@ def build(run_dir: Path, out_path: Path, workdir: Path) -> Path:
             "effective sample is about five years per grower and the pooled weather "
             "p-value (n = 150) is indicative only.",
             "**Small groups.** Three growers and five years per grower make all "
-            "inference descriptive. Bootstrap confidence intervals on coarse class "
-            "counts (1.6-4.6 classes) are reported only as a spread, not as a "
-            "precision claim.",
+            "inference descriptive. The bootstrap intervals are for rho, and they rest "
+            "on a coarse count variable "
+            f"({fnum(diversity.min())}-{fnum(diversity.max())} classes per field-year), "
+            "so they are reported as a spread, not as a precision claim.",
             "**CDL residual.** The per-year CDL tables omit unclassified pixels; that "
             "residual is 0.0-"
             f"{fnum(residual_max, 1)}% of field pixels and is excluded from every share "
