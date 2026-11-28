@@ -91,6 +91,23 @@ def _attach_field_centroids(fields: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return fields
 
 
+def _missing_cache_fields(
+    weather_df: pd.DataFrame, fields: gpd.GeoDataFrame
+) -> list[str]:
+    """Field ids the cached farm table does not cover, sorted.
+
+    A farm can grow after its weather was first downloaded (Assignment 1 farms
+    gain fields in Assignment 2). The cache shortcut used to check only that the
+    combined CSV existed, so the rebuilt per-field files left the new fields
+    header-only. Coverage is now part of the cache contract.
+    """
+    expected = {str(field_id) for field_id in fields["field_id"]}
+    if "field_id" not in weather_df.columns:
+        return sorted(expected)
+    cached = {str(field_id) for field_id in weather_df["field_id"].dropna()}
+    return sorted(expected - cached)
+
+
 def _write_weather_outputs(
     weather_df: pd.DataFrame,
     *,
@@ -270,15 +287,22 @@ def main():
 
     if combined_output.exists() and not force:
         weather_df = pd.read_csv(combined_output, parse_dates=["date"])
-        _write_weather_outputs(
-            weather_df,
-            combined_output=combined_output,
-            grower_slug=grower_slug,
-            farm_slug=farm_slug,
-            field_slug_map=field_slug_map,
+        missing_fields = _missing_cache_fields(weather_df, fields)
+        if not missing_fields:
+            _write_weather_outputs(
+                weather_df,
+                combined_output=combined_output,
+                grower_slug=grower_slug,
+                farm_slug=farm_slug,
+                field_slug_map=field_slug_map,
+            )
+            print(f"skip  weather fetch (cached): {combined_output}")
+            return weather_df
+        print(
+            f"refresh weather fetch: cache {combined_output.name} covers "
+            f"{len(fields) - len(missing_fields)}/{len(fields)} fields; "
+            f"missing {', '.join(missing_fields)}"
         )
-        print(f"skip  weather fetch (cached): {combined_output}")
-        return weather_df
 
     print(f"Loaded {len(fields)} fields")
     print(

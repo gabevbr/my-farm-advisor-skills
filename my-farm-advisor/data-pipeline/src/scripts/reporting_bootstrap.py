@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from lib.runtime_paths import resolve_runtime_paths
 
@@ -406,16 +407,28 @@ def ensure_canonical_data_tree(
     (farm / "derived" / "summaries").mkdir(parents=True, exist_ok=True)
     (farm / "derived" / "dashboards").mkdir(parents=True, exist_ok=True)
     (farm / "derived" / "tables").mkdir(parents=True, exist_ok=True)
+    # Preserve a farm's real state: this used to hard-code "IA", which silently
+    # relabelled every non-Iowa farm on each pipeline run (region labels, CDL
+    # routing hints). New farms keep the historical IA default.
+    existing_farm: dict[str, Any] = {}
+    farm_json_path = farm / "farm.json"
+    if farm_json_path.exists():
+        try:
+            loaded = json.loads(farm_json_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                existing_farm = loaded
+        except (OSError, ValueError):
+            existing_farm = {}
     _write_json(
-        farm / "farm.json",
+        farm_json_path,
         {
             "grower_slug": grower_slug,
             "farm_slug": farm_slug,
             "display_name": farm_name,
-            "state": "IA",
-            "country": "US",
-            "default_crs": "EPSG:4326",
-            "notes": "Canonical farm metadata",
+            "state": str(existing_farm.get("state") or "IA").strip().upper() or "IA",
+            "country": existing_farm.get("country") or "US",
+            "default_crs": existing_farm.get("default_crs") or "EPSG:4326",
+            "notes": existing_farm.get("notes") or "Canonical farm metadata",
         },
     )
     _write_text(farm / "logs" / "pipeline_runs.jsonl", "", overwrite=False)

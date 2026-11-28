@@ -16,6 +16,7 @@ The best-available-data ladder and the keyless RDM regional-reference API
   viewport rotation — [references/field-map-frame.md](references/field-map-frame.md).
 - Every map renders over keyless **Esri World Imagery** warped into the same rotated frame —
   [references/basemap.md](references/basemap.md).
+- Grower-level interactive HTML map of every field on satellite tiles — [webmap/GUIDE.md](webmap/GUIDE.md).
 ## Example renders
 
 Vision-QC'd sample figures ship under [`examples/`](examples/) — one
