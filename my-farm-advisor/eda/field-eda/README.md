@@ -11,6 +11,18 @@ separate steps that consume these outputs. A worked consumer lives at the reposi
 root in `reports/assignment-2-field-eda/`: it rebuilds a PDF reading guide from one
 run's `figures/`, `tables/` and `manifest.json`.
 
+## Skill at a glance
+
+- **Name:** `field-eda`, a subskill of `my-farm-advisor`
+- **Lives in:** `my-farm-advisor/eda/field-eda/` — entrypoint `run_field_eda.py`, logic
+  in `src/field_eda/`
+- **Generates:** ten static PNG figures, four CSV tables and a `manifest.json` per run
+- **Writes to:** `${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-id>/`
+  (`figures/`, `tables/`, `manifest.json`); generated outputs stay in the runtime and
+  are not committed
+- **Report:** `reports/assignment-2-field-eda/` — the one-time Assignment 2 PDF and its
+  builder, outside the skill
+
 ## What it answers
 
 | Category | Question | Figure | Table |
