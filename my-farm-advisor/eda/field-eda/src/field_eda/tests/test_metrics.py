@@ -165,6 +165,27 @@ def test_class_share_by_grower_year_is_exclusive() -> None:
     assert set(shares["unit"]) == {"pixel_count"}
 
 
+def test_class_share_targets_pct_when_pixel_count_is_blank() -> None:
+    base = {
+        "field_id": ["a", "a", "b", "b"],
+        "year": [2023, 2023, 2023, 2023],
+        "crop_name": ["Corn", "Forest", "Corn", "Forest"],
+        "pct": [80.0, 20.0, 60.0, 40.0],
+    }
+    fields = pd.DataFrame({"field_id": ["a", "b"], "grower_name": ["G", "G"]})
+
+    # An all-blank column would sum to zero and report 0% for every class; a
+    # partly blank column would silently drop those rows. Either way, fall back.
+    for pixel_count in ([np.nan] * 4, [np.nan, np.nan, 60, 40]):
+        cdl = pd.DataFrame({**base, "pixel_count": pixel_count})
+        shares = class_share_by_grower_year(cdl, fields)
+        assert set(shares["unit"]) == {"pct"}
+        corn = shares[(shares["year"] == 2023) & (shares["crop_group"] == "Corn")]
+        assert abs(float(corn["pct"].iloc[0]) - 70.0) < 1e-9
+        total = shares[shares["year"] == 2023]["pct"].sum()
+        assert abs(total - 100.0) < 1e-6
+
+
 if __name__ == "__main__":
     test_compactness_of_square_is_one()
     test_shannon_diversity()
@@ -177,4 +198,5 @@ if __name__ == "__main__":
     test_class_diversity_keeps_empty_field_years()
     test_crop_group_collapses_long_tail()
     test_class_share_by_grower_year_is_exclusive()
+    test_class_share_targets_pct_when_pixel_count_is_blank()
     print("ok")

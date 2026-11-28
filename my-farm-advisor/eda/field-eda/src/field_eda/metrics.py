@@ -99,9 +99,11 @@ def class_share_by_grower_year(cdl: pd.DataFrame, fields: pd.DataFrame) -> pd.Da
     """Share of classified CDL pixels per grower, year, and crop group.
 
     Computed inside each grower-year, so a year with more field rows cannot
-    dominate. ``pixel_count`` is the exclusive unit when the producer ships it:
-    every pixel is counted once, and the unclassified residual is simply absent
-    from the denominator rather than being assigned to a class.
+    dominate. ``pixel_count`` is the exclusive unit when the producer ships a
+    complete column: every pixel is counted once, and the unclassified residual
+    is simply absent from the denominator rather than being assigned to a class.
+    A missing or partial ``pixel_count`` falls back to ``pct`` instead of
+    silently summing blanks to zero shares.
     """
     columns = ["grower_name", "year", "crop_group", "pct", "unit"]
     if cdl.empty or fields.empty:
@@ -111,7 +113,14 @@ def class_share_by_grower_year(cdl: pd.DataFrame, fields: pd.DataFrame) -> pd.Da
     frame = cdl.copy()
     frame["grower_name"] = frame["field_id"].map(mapping)
     frame = frame.dropna(subset=["grower_name"])
-    unit = "pixel_count" if "pixel_count" in frame.columns else "pct"
+    unit = "pct"
+    if "pixel_count" in frame.columns:
+        counts = pd.to_numeric(frame["pixel_count"], errors="coerce")
+        # An all-NaN (or partly blank) count column would sum to zero and the
+        # grid fillna below would report 0% for every class. Use it only when
+        # every kept row has a count.
+        if not frame.empty and counts.notna().all():
+            unit = "pixel_count"
     frame["crop_group"] = frame["crop_name"].map(crop_group)
 
     grouped = (

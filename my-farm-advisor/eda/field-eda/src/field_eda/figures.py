@@ -765,9 +765,16 @@ def figure_size_vs_diversity(fields: pd.DataFrame, path: Path) -> Path:
         # The stats box sits inside the axes, so reserve vertical room for it
         # instead of letting it cover the top points.
         values = fields[column].astype(float)
-        span = values.max() - values.min()
+        low, high = float(values.min()), float(values.max())
+        span = high - low
+        if not np.isfinite(span) or span <= 0.0:
+            # All-equal values would give identical ylims, which matplotlib warns
+            # about; open a fixed window around the shared value so the points
+            # stay visible instead of collapsing to one line.
+            center = high if np.isfinite(high) else 0.0
+            low, high, span = center - 0.5, center + 0.5, 1.0
         headroom = 0.30 if box_position == "upper left" else 0.06
-        axis.set_ylim(values.min() - 0.08 * span, values.max() + headroom * span)
+        axis.set_ylim(low - 0.08 * span, high + headroom * span)
 
     low, high = fields["area_ha"].min(), fields["area_ha"].max()
     margin = 0.05 * (high - low)
