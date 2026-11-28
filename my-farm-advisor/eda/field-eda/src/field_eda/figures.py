@@ -344,7 +344,7 @@ def figure_composition(
 def figure_climatology(
     fields: pd.DataFrame, weather: pd.DataFrame, path: Path
 ) -> Path:
-    """F5: monthly temperature and precipitation by grower, 2021-2025 spread."""
+    """F5: monthly temperature and precipitation by grower, year-to-year spread."""
     _style()
     monthly = _monthly_by_grower(fields, weather)
     if monthly.empty:
@@ -388,7 +388,10 @@ def figure_climatology(
     precip_axis.set_xticklabels(
         ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     )
-    temperature_axis.set_title("Seasonal climate by grower, 2021-2025")
+    years = sorted(int(year) for year in monthly["year"].unique())
+    temperature_axis.set_title(
+        f"Seasonal climate by grower, {years[0]}-{years[-1]}"
+    )
     temperature_axis.legend(title="Grower", loc="upper left")
     temperature_axis.text(
         0.985, 0.03, "shaded band = year-to-year min-max; grey = Apr-Oct growing season",

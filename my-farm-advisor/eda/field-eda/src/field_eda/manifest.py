@@ -66,6 +66,12 @@ def build_manifest(
                 "cdl_years": sorted(int(year) for year in farm.cdl["year"].unique())
                 if not farm.cdl.empty
                 else [],
+                "weather_years": sorted(
+                    int(year)
+                    for year in pd.to_datetime(farm.weather["date"]).dt.year.unique()
+                )
+                if not farm.weather.empty
+                else [],
             }
             for farm in farms
         ],
