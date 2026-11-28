@@ -115,7 +115,7 @@ Exact columns, dtypes, and validation warnings are in
   is sensitive to those slivers.
 - **Weather.** Growing season is April 1–October 31. GDD uses base 10 °C with a 30 °C
   cap. Monthly precipitation is summed per field-month first and then averaged across
-  the co-located fields, so a shared climate grid is not counted ten times.
+  the co-located fields, so nearby grid cells are not counted ten times.
 - **Geospatial.** F7 draws one panel per farm on a local UTM metre frame, auto-rotated
   to the sampled-field cluster, with a true-north arrow and an Esri World Imagery
   basemap under the footprints. The fields are colored by latest dominant crop. Because
@@ -130,8 +130,8 @@ for pairwise contrasts, Spearman rho for association, and eta-squared for the sh
 variance between growers. Effect sizes and confidence intervals are reported alongside
 p-values; p-values are not treated as decision thresholds on their own.
 
-The important caveat: the 10 fields in a grower share one climate grid, and the
-fields are the top 10 by area in each county, not a random draw. Weather p-values use
+The important caveat: the 10 fields in a grower sample only a few climate-model
+grid cells, and the fields are the top 10 by area in each county, not a random draw. Weather p-values use
 field-years as rows but the effective sample is closer to 5 years per grower, and the
 pooled precipitation–GDD correlation is a between-grower contrast that changes sign
 within Illinois. See [references/statistics.md](references/statistics.md).

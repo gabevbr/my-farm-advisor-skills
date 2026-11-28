@@ -58,4 +58,5 @@ Outputs land under `${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-
 - Figures are generated into the runtime, not into Git. Commit only reviewed gallery
   figures under an `examples/**/output/` path when a release explicitly needs them.
 - The 10 fields per grower are a top-10-by-area sample, not a random sample, and the 10
-  fields in a grower share one climate grid. State both when quoting results.
+  fields in a grower sample only a few climate-model grid cells. State both when quoting
+  results.

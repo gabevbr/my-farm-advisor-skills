@@ -118,8 +118,8 @@ with growing-season totals in the 40–130 mm/month range and wide year-to-year 
 growers do not sort into a clean wet/dry order.
 
 **Caveat.** The band is min–max over five years, not a confidence interval, and it is
-wide because n is five. The 10 fields in a grower share one climate grid; the lines are
-not 10 independent weather stations.
+wide because n is five. The 10 fields in a grower sample only a few climate-model grid
+cells; the lines are not 10 independent weather stations.
 
 **Verdict.** Pass after fix. The first render summed `PRECTOTCORR` across all 10 fields
 in a grower, inflating monthly totals roughly 10× (up to ~2,300 mm/month). The
@@ -143,7 +143,8 @@ Nebraska are both negative (`rho = -0.48`). Illinois occupies the wetter, higher
 side of the cloud; Nebraska is hotter at lower precipitation. The pooled sign is
 therefore not evidence that wetter seasons are cooler within a field.
 
-**Caveat.** Field-years are pseudoreplicated: 10 fields share one climate grid, so the
+**Caveat.** Field-years are pseudoreplicated: the 10 fields sample only a few climate-model
+grid cells, so the
 effective sample is about five years per grower. The pooled p-value uses 150 rows and is
 indicative only. The footnote states this and the sign flip.
 
@@ -244,7 +245,10 @@ field can dominate a grower-year; this is intentional, but it is not a field cou
 axis labels in the middle panel; the axis label was dropped (the years are self-evident)
 and the legend moved below the panels. The grey class was also relabelled from
 "Other / unclassified" to "Other CDL classes", because in this figure the unclassified
-residual is excluded, not grey.
+residual is excluded, not grey. A later pass wrapped the footnote onto two lines and
+floored the canvas at 6.8 in wide: before that, the single long footnote set the
+tight-bbox width, so a 1- or 2-grower `--growers` subset padded inches of dead space
+right of the last panel and dragged the suptitle and legend off centre.
 
 ## F10 — Field size vs CDL class diversity
 

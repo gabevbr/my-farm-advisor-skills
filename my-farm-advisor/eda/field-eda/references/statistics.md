@@ -9,7 +9,7 @@ interpretation traps that matter more than the p-values.
   3 growers, 30 fields.
 - **Field-years** are the rows for weather plots: 10 fields × 5 years × 3 growers = 150.
 - **Years**, not fields, are the effective weather replicate. The 10 fields in a grower
-  share one climate grid, so field-years are pseudoreplicates for climate.
+  sample only a few climate-model grid cells, so field-years are pseudoreplicates for climate.
 - **Farm-years** (3 growers × 5 years = 15) are used for the between-grower variance
   share, not field-years.
 - The fields are the **top 10 by area** inside each county, not a random sample. All

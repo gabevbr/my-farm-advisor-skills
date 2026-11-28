@@ -400,8 +400,8 @@ def figure_climatology(
 def _monthly_by_grower(fields: pd.DataFrame, weather: pd.DataFrame) -> pd.DataFrame:
     """Monthly per-grower climate, averaging the 10 co-located fields.
 
-    The 10 fields in a grower share one climate grid, so precipitation must be
-    summed per field-month *first* and then averaged across fields. Summing
+    The 10 fields in a grower sit in only a few model grid cells, so precipitation
+    must be summed per field-month *first* and then averaged across fields. Summing
     straight across the grower would multiply monthly totals by the field count.
     """
     if weather.empty:
@@ -488,7 +488,7 @@ def figure_precip_vs_gdd(field_years: pd.DataFrame, path: Path) -> Path:
     figure.text(
         0.01, -0.02,
         "Pooled rho is a between-grower contrast; within a grower the sign can flip. "
-        "10 fields per grower share one climate grid, so the 5 years are the effective sample.",
+        "10 fields per grower sample a few grid cells, so the 5 years are the effective sample.",
         fontsize=7, color="#555555", ha="left",
     )
     return _save(figure, path)
@@ -630,8 +630,12 @@ def figure_cdl_class_by_grower(
     years = sorted(int(year) for year in shares["year"].unique())
     classes = ["Corn", "Soybeans", "Grass/Pasture", "Other"]
 
+    # The footnote below sets the tight-bbox width. Floor the canvas so a 1- or
+    # 2-grower subset does not pad dead space right of the last panel.
     figure, axes = plt.subplots(
-        1, len(order), figsize=(3.0 * len(order) + 0.6, 4.0), sharey=True, squeeze=False
+        1, len(order),
+        figsize=(max(6.8, 3.0 * len(order) + 0.6), 4.0),
+        sharey=True, squeeze=False,
     )
     axes = axes[0]
     for axis, name in zip(axes, order):
@@ -687,11 +691,10 @@ def figure_cdl_class_by_grower(
     )
     figure.text(
         0.01, -0.09,
-        "Bars are 100% of CDL-classified pixels in each grower-year, so the crop classes are "
-        f"exclusive. Grass/Pasture and Other stay at or below {minor_max:.1f}% every year; "
-        "exact shares are in tables/stats-cdl.csv.\n"
-        "Unclassified CDL pixels (about 1-3% of a field) are not a class and are excluded "
-        "from the denominator.",
+        "Bars are 100% of CDL-classified pixels per grower-year; classes are exclusive. "
+        "Grass/Pasture and Other stay\n"
+        f"at or below {minor_max:.1f}% every year; exact shares are in tables/stats-cdl.csv. "
+        "Unclassified pixels (~1-3%) are excluded.",
         fontsize=6.8, color="#555555", ha="left",
     )
     return _save(figure, path)

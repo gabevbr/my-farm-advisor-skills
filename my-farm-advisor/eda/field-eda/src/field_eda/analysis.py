@@ -426,7 +426,7 @@ def weather_stats(field_years: pd.DataFrame, fields: pd.DataFrame) -> pd.DataFra
             effect_size=result["rho"],
             effect_metric="rho",
             notes=(
-                f"field-years within one grower; 10 fields share one climate grid, "
+                f"field-years within one grower; 10 fields sample a few grid cells, "
                 f"so effective n is the 5 years"
             ),
         ))

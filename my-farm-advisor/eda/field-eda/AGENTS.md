@@ -20,7 +20,8 @@ Working rules for agents editing or running this subtree.
   `iowa`, `nebraska_demo`); keep the glob-based discovery in `loaders.py`.
 - **Project before measuring.** Area, perimeter, and compactness must be computed in
   EPSG:5070. Never compute shape metrics in EPSG:4326.
-- **Do not sum co-located weather.** The 10 fields in a grower share one climate grid.
+- **Do not sum co-located weather.** The 10 fields in a grower sample only a few climate-model
+  grid cells.
   Sum precipitation per field-month, then average across fields. The regression test in
   `tests/test_figures.py` guards this.
 - **State the sampling caveat.** Fields are a top-10-by-area selection, and weather
