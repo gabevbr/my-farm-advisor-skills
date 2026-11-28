@@ -25,6 +25,8 @@ interpretation traps that matter more than the p-values.
 | Rotation diversity differs across growers | Kruskal–Wallis | epsilon-squared | `stats-cdl.csv` |
 | Which grower pairs differ in diversity | Mann–Whitney U, Holm | rank-biserial | `stats-cdl.csv` |
 | Continuous-corn prevalence | count and share | share of fields | `stats-cdl.csv` |
+| Class mix across growers | mean of grower-year pixel shares | percent of classified pixels | F9, `stats-cdl.csv` |
+| Field area vs distinct CDL classes | Spearman rho | rho, bootstrap 95% CI | F10, `stats-cdl.csv` |
 | Season precip vs GDD | Spearman rho | rho, bootstrap 95% CI | F6, `stats-weather.csv` |
 | Share of weather variance between growers | eta-squared on farm-year means | between-group share | `stats-weather.csv` |
 
@@ -50,7 +52,7 @@ p-values are therefore descriptive evidence about this sample, not population in
 
 ## Current result snapshot
 
-Assignment 2 dataset, run `20261127T235808Z`.
+Assignment 2 dataset, run `20261128T120000Z`.
 
 ### Boundaries (`stats-boundaries.csv`)
 
@@ -85,6 +87,37 @@ alternation scores `ln 2 ≈ 0.693`; continuous corn scores 0. Nebraska's lower 
 wider IQR come from its three continuous-corn fields; Illinois and Iowa are dominated by
 alternating fields. A significant omnibus with only one surviving pair is a sample-size
 story, not a strong grower ranking.
+
+**Class shares (`analysis=class-share`).** Mean of the five grower-year shares of
+CDL-classified pixels, using `pixel_count` as the exclusive unit:
+
+| Grower | Corn | Soybeans | Grass/Pasture | Other |
+| --- | --- | --- | --- | --- |
+| Illinois | 59.7 | 39.6 | 0.57 | 0.14 |
+| Iowa | 46.2 | 53.4 | 0.35 | 0.03 |
+| Nebraska | 65.7 | 34.0 | 0.09 | 0.20 |
+
+Reading: all three are corn–soybean systems; the class mix differs only in which side of
+the rotation dominates. Grass/Pasture and Other are under 1% everywhere, so they are
+reported here rather than being visible in F9.
+
+**Size vs class diversity (A4).** Spearman of field area against `distinct_classes_mean`
+(mean over five CDL years), pooled and per grower:
+
+| Comparison | n | rho | p |
+| --- | --- | --- | --- |
+| Pooled, any share | 30 | 0.34 | 0.069 |
+| Pooled, `>=1%` floor | 30 | 0.07 | 0.72 |
+| Illinois | 10 | -0.05 | 0.89 |
+| Iowa | 10 | 0.51 | 0.13 |
+| Nebraska | 10 | 0.59 | 0.07 |
+
+Bootstrap 95% CI for the pooled any-share rho: `[-0.04, 0.68]`; the `>=1%` CI is
+`[-0.32, 0.42]`, comfortably including zero. Reading: no supported relationship. The
+pooled positive sign is a between-grower contrast — Illinois has both larger fields and
+more listed classes, but its own rho is flat — and the literal count is dominated by
+edge slivers, because it collapses once a 1% floor is applied. This is a reported
+negative result, not a null that was hidden.
 
 ### Weather (`stats-weather.csv`)
 
@@ -125,6 +158,18 @@ with latitude/longitude dominating heat while rain varies year to year everywher
    not a confidence interval, and one anomalous year dominates it.
 8. **CDL residual is coverage, not a crop.** The grey band in F4 is unclassified or
    ungrouped pixels; do not read it as a specific land use.
+9. **Two diversity measures, two questions.** `rotation_diversity` is Shannon over the
+   five-year dominant-crop sequence; `distinct_classes_mean` counts classes present in a
+   single field-year. A field can be 60% corn and 40% soy in one year and still have one
+   dominant crop for that year, so the class count is the higher of the two and is far
+   more sensitive to edge pixels. Never substitute one for the other.
+10. **A class count is partly a labelling artefact.** One- or two-pixel slivers along a
+    field edge can add a class without any management decision. Always report the
+    `>=1%` floor next to the literal count, and treat a literal-count trend that
+    vanishes at the floor as an artefact.
+11. **Class shares are area-weighted.** F9 and `analysis=class-share` weight by CDL pixel
+    count, so one large field can dominate a grower-year. That is the right unit for a
+    land-cover mix and the wrong unit for "how many fields did X".
 
 ## Reporting guidance
 

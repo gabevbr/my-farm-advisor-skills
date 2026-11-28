@@ -41,6 +41,11 @@ that was read, so a reviewed figure can be tied back to exact source tables.
   `π/4` and the circle scores `1.0`; the test suite pins the square case.
 - **Shannon diversity** — applied to the five-year dominant-crop sequence, not to pixel
   areas. A constant sequence scores 0; a two-class even split scores `ln 2 ≈ 0.693`.
+  This is *rotation* diversity; the *distinct-class* count per field-year (F10/A4) is a
+  separate quantity and is reported at both the literal and `>=1%` share floors.
+- **Class shares** — computed per grower-year, then averaged across years, using
+  `pixel_count` as the exclusive unit when the producer ships it. Unclassified pixels
+  are excluded from the denominator rather than assigned to a class.
 - **Statistics** — rank-based tests (`scipy.stats.kruskal`, `mannwhitneyu`,
   `spearmanr`) with Holm correction and seeded bootstrap CIs. Choices and caveats are in
   [references/statistics.md](references/statistics.md).

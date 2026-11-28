@@ -14,7 +14,7 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from .metrics import natural_key
+from .metrics import class_share_by_grower_year, natural_key
 from .stats import spearman_with_ci
 
 STATE_COLORS = {
@@ -500,3 +500,299 @@ def _format_p(value: float) -> str:
     if value < 0.001:
         return "< 0.001"
     return f"= {value:.3f}"
+
+
+CROP_TEXT_COLORS = {
+    "Corn": "#3D2A00",
+    "Soybeans": "#0B2C3D",
+    "Grass/Pasture": "#FFFFFF",
+    "Other": "#1F2937",
+}
+
+
+def _ordered_fields(fields: pd.DataFrame) -> pd.DataFrame:
+    return fields.sort_values(
+        ["grower_name", "field_id"],
+        key=lambda series: series.map(
+            lambda value: natural_key(value) if isinstance(value, str) else value
+        ),
+    ).reset_index(drop=True)
+
+
+def _grower_blocks(ordered: pd.DataFrame) -> list[tuple[str, int, int]]:
+    """Contiguous (grower, first_row, last_row) blocks in a sorted frame."""
+    blocks: list[tuple[str, int, int]] = []
+    names = ordered["grower_name"].tolist()
+    start = 0
+    for index in range(1, len(names) + 1):
+        if index == len(names) or names[index] != names[start]:
+            blocks.append((names[start], start, index - 1))
+            start = index
+    return blocks
+
+
+def figure_weather_field_year(
+    field_years: pd.DataFrame, fields: pd.DataFrame, path: Path
+) -> Path:
+    """F8: season precipitation and GDD for every field and year.
+
+    Rows are fields grouped by grower, columns are years, so one panel answers
+    "how did this field's season move across years" and the row order answers
+    "how do fields inside one grower compare".
+    """
+    _style()
+    if field_years.empty:
+        raise ValueError("field-year weather figure needs seasonal weather rows")
+
+    ordered = _ordered_fields(fields)
+    years = sorted(int(year) for year in field_years["year"].unique())
+
+    def _grid(value: str) -> np.ndarray:
+        pivot = field_years.pivot_table(
+            index="field_id", columns="year", values=value, aggfunc="mean"
+        ).reindex(index=ordered["field_id"], columns=years)
+        return pivot.to_numpy(dtype=float)
+
+    panels = (
+        ("Growing-season precipitation (mm)", _grid("season_precip_mm"), "YlGnBu"),
+        ("Growing-season GDD (°C, base 10, cap 30)", _grid("season_gdd_c"), "YlOrRd"),
+    )
+
+    figure, axes = plt.subplots(1, 2, figsize=(7.8, 8.8), sharey=True)
+    for axis, (label, values, cmap) in zip(axes, panels):
+        image = axis.imshow(values, aspect="auto", cmap=cmap, interpolation="nearest")
+        axis.set_title(label, fontsize=9.5, pad=6)
+
+        for row in range(values.shape[0]):
+            for column in range(values.shape[1]):
+                value = values[row, column]
+                if not np.isfinite(value):
+                    text, shade = "n/a", "#6B7280"
+                else:
+                    text = f"{value:.0f}"
+                    shade = "white" if image.norm(value) > 0.62 else "#1F2937"
+                axis.text(
+                    column, row, text, ha="center", va="center",
+                    fontsize=6.2, color=shade,
+                )
+
+        axis.set_xticks(range(len(years)))
+        axis.set_xticklabels([str(year) for year in years])
+        axis.set_xticks(np.arange(-0.5, len(years), 1), minor=True)
+        axis.set_yticks(np.arange(-0.5, len(ordered), 1), minor=True)
+        axis.grid(which="minor", color="white", linewidth=0.7)
+        axis.tick_params(which="both", length=0)
+        axis.set_xlabel("Year")
+
+        for _, first, last in _grower_blocks(ordered):
+            if first:
+                axis.axhline(first - 0.5, color="#222222", linewidth=1.3)
+        axis.axhline(len(ordered) - 0.5, color="#222222", linewidth=1.3)
+
+        colorbar = figure.colorbar(image, ax=axis, fraction=0.045, pad=0.035)
+        colorbar.ax.tick_params(labelsize=6)
+        colorbar.outline.set_linewidth(0.4)
+        for spine in axis.spines.values():
+            spine.set_visible(False)
+
+    axes[0].set_yticks(range(len(ordered)))
+    axes[0].set_yticklabels(ordered["field_id"], fontsize=6.4)
+    for name, first, last in _grower_blocks(ordered):
+        axes[0].text(
+            -0.34, (first + last) / 2.0, name,
+            transform=axes[0].get_yaxis_transform(),
+            rotation=90, va="center", ha="center", fontsize=8,
+            clip_on=False,
+        )
+
+    figure.suptitle("Season weather by field and year", fontsize=12, fontweight="bold", y=0.995)
+    figure.text(
+        0.01, -0.015,
+        "Growing season Apr 1-Oct 31; GDD base 10 °C with the daily mean capped at 30 °C. "
+        "Rows are fields grouped by grower, columns are years.\n"
+        "The 10 fields in a grower sample only a handful of model grid cells, so rows are "
+        "close but not identical; the effective climate sample is 5 years per grower.",
+        fontsize=6.8, color="#555555", ha="left",
+    )
+    return _save(figure, path)
+
+
+def figure_cdl_class_by_grower(
+    cdl: pd.DataFrame, fields: pd.DataFrame, path: Path
+) -> Path:
+    """F9: CDL crop-class composition per grower, one panel per grower."""
+    _style()
+    shares = class_share_by_grower_year(cdl, fields)
+    if shares.empty:
+        raise ValueError("crop-class figure needs the CDL long table")
+
+    order = _grower_order(fields)
+    years = sorted(int(year) for year in shares["year"].unique())
+    classes = ["Corn", "Soybeans", "Grass/Pasture", "Other"]
+
+    figure, axes = plt.subplots(
+        1, len(order), figsize=(3.0 * len(order) + 0.6, 4.0), sharey=True, squeeze=False
+    )
+    axes = axes[0]
+    for axis, name in zip(axes, order):
+        block = shares[shares["grower_name"] == name]
+        table = (
+            block.pivot_table(
+                index="year", columns="crop_group", values="pct", aggfunc="sum"
+            )
+            .reindex(index=years, columns=classes)
+            .fillna(0.0)
+        )
+        bottom = np.zeros(len(years))
+        for crop in classes:
+            values = table[crop].to_numpy(dtype=float)
+            axis.bar(
+                range(len(years)), values, bottom=bottom, width=0.68,
+                color=CROP_COLORS[crop], edgecolor="white", linewidth=0.6,
+                label=CROP_LABELS[crop],
+            )
+            for position, (height, base) in enumerate(zip(values, bottom)):
+                if height >= 8.0:
+                    axis.text(
+                        position, base + height / 2.0, f"{height:.0f}%",
+                        ha="center", va="center", fontsize=7,
+                        color=CROP_TEXT_COLORS[crop],
+                    )
+            bottom += values
+
+        axis.set_title(name, fontsize=9.5, pad=6)
+        axis.set_xticks(range(len(years)))
+        axis.set_xticklabels([str(year) for year in years])
+        axis.set_ylim(0, 100)
+        axis.grid(axis="y", color=GRID_COLOR, linewidth=0.6)
+        axis.set_axisbelow(True)
+        for spine in ("top", "right"):
+            axis.spines[spine].set_visible(False)
+
+    axes[0].set_ylabel("Share of classified CDL pixels (%)")
+    # The grey band here is genuinely other CDL classes (Forest, Fallow, Wheat),
+    # not the unclassified residual, which is excluded from the denominator.
+    labels = {**CROP_LABELS, "Other": "Other CDL classes"}
+    handles = [
+        Patch(facecolor=CROP_COLORS[crop], label=labels[crop]) for crop in classes
+    ]
+    figure.legend(
+        handles=handles, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 0.055)
+    )
+    minor = shares[shares["crop_group"].isin(["Grass/Pasture", "Other"])]["pct"]
+    minor_max = float(minor.max()) if not minor.empty else 0.0
+    figure.suptitle(
+        f"CDL crop-class composition by grower, {years[0]}-{years[-1]}",
+        fontsize=11.5, fontweight="bold", y=1.02,
+    )
+    figure.text(
+        0.01, -0.09,
+        "Bars are 100% of CDL-classified pixels in each grower-year, so the crop classes are "
+        f"exclusive. Grass/Pasture and Other stay at or below {minor_max:.1f}% every year; "
+        "exact shares are in tables/stats-cdl.csv.\n"
+        "Unclassified CDL pixels (about 1-3% of a field) are not a class and are excluded "
+        "from the denominator.",
+        fontsize=6.8, color="#555555", ha="left",
+    )
+    return _save(figure, path)
+
+
+def figure_size_vs_diversity(fields: pd.DataFrame, path: Path) -> Path:
+    """F10 + A4: field size against the number of CDL classes per field-year."""
+    _style()
+    colors = grower_colors(fields)
+    states = (
+        fields.groupby("grower_name")["state"].first()
+        if "state" in fields.columns
+        else pd.Series(dtype=str)
+    )
+
+    panels = (
+        (
+            "distinct_classes_mean",
+            "All listed CDL classes",
+            "lower right",
+        ),
+        (
+            "distinct_classes_1pct_mean",
+            "Classes at >=1% of the field",
+            "upper left",
+        ),
+    )
+
+    figure, axes = plt.subplots(1, 2, figsize=(9.6, 4.6), sharex=True)
+    for axis, (column, title, box_position) in zip(axes, panels):
+        for name in _grower_order(fields):
+            group = fields[fields["grower_name"] == name]
+            axis.scatter(
+                group["area_ha"], group[column], s=36, color=colors[name],
+                edgecolor="white", linewidth=0.6, alpha=0.9, label=name, zorder=3,
+            )
+
+        pooled = spearman_with_ci(fields["area_ha"], fields[column])
+        lines = [
+            f"pooled rho = {pooled['rho']:.2f} "
+            f"(p {_format_p(pooled['p_value'])}, n = {pooled['n']})"
+        ]
+        for name in _grower_order(fields):
+            group = fields[fields["grower_name"] == name]
+            per_grower = spearman_with_ci(group["area_ha"], group[column])
+            label = str(states.get(name, name))
+            lines.append(f"{label}: rho = {per_grower['rho']:.2f}")
+        # The box sits where the points are not: the all-class panel is dense in
+        # the upper left, the 1%-floor panel is dense along the bottom.
+        axis.text(
+            0.98 if box_position == "lower right" else 0.02,
+            0.02 if box_position == "lower right" else 0.98,
+            "\n".join(lines),
+            transform=axis.transAxes,
+            ha="right" if box_position == "lower right" else "left",
+            va="bottom" if box_position == "lower right" else "top",
+            fontsize=7.2, color="#333333",
+            bbox={"boxstyle": "round,pad=0.35", "facecolor": "white", "edgecolor": GRID_COLOR},
+        )
+
+        axis.set_title(title, fontsize=10, pad=5)
+        axis.set_xlabel("Field area (ha)")
+        axis.grid(color=GRID_COLOR, linewidth=0.6)
+        axis.set_axisbelow(True)
+        for spine in ("top", "right"):
+            axis.spines[spine].set_visible(False)
+
+        # The stats box sits inside the axes, so reserve vertical room for it
+        # instead of letting it cover the top points.
+        values = fields[column].astype(float)
+        span = values.max() - values.min()
+        headroom = 0.30 if box_position == "upper left" else 0.06
+        axis.set_ylim(values.min() - 0.08 * span, values.max() + headroom * span)
+
+    low, high = fields["area_ha"].min(), fields["area_ha"].max()
+    margin = 0.05 * (high - low)
+    axes[0].set_xlim(low - margin, high + margin)
+    axes[0].set_ylabel("Distinct CDL classes per field-year\n(mean of 5 CDL years)")
+    axes[1].legend(title="Grower", loc="upper right", bbox_to_anchor=(1.0, 0.92))
+
+    pooled_all = spearman_with_ci(fields["area_ha"], fields[panels[0][0]])
+    pooled_floor = spearman_with_ci(fields["area_ha"], fields[panels[1][0]])
+    supported = min(pooled_all["p_value"], pooled_floor["p_value"]) < 0.05
+    if supported:
+        verdict = (
+            "At least one floor is significant, but the per-grower rho above shows whether "
+            "that is a within-grower effect or a between-grower contrast."
+        )
+    else:
+        verdict = (
+            "Neither floor reaches p < 0.05, so this sample does not support a field-size "
+            "effect on class diversity. Read any pooled sign against the per-grower values, "
+            "which can differ in sign."
+        )
+
+    figure.suptitle("Field size vs CDL class diversity", fontsize=11.5, fontweight="bold", y=1.02)
+    figure.text(
+        0.01, -0.09,
+        "One point per field: mean over 2019-2023 of the number of CDL classes present that "
+        "year. Spearman rho with bootstrap 95% CI; 10 fields per grower, so per-grower values "
+        "are descriptive.\n" + verdict,
+        fontsize=6.8, color="#555555", ha="left",
+    )
+    return _save(figure, path)

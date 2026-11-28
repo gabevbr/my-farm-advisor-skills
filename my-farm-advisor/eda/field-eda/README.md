@@ -21,6 +21,9 @@ separate steps that consume these outputs.
 | Weather | What does the seasonal cycle look like by grower? | F5 | `stats-weather.csv` |
 | Weather | How do seasonal water and heat co-vary? | F6 | `stats-weather.csv` |
 | Geospatial | Where are the sampled fields, and what crop is in each? | F7 | `field-metrics.csv` |
+| Weather | How did each field's season move across years, and how do fields inside a grower compare? | F8 | `field-metrics.csv` |
+| CDL | How is the crop-class mix split across growers, year by year? | F9 | `stats-cdl.csv` |
+| Boundaries × CDL | Does field size predict how many crop classes a field carries? | F10 | `stats-cdl.csv` |
 
 The full encoding and intended story for each figure is in
 [references/figure-specs.md](references/figure-specs.md). Test choices and results are
@@ -58,7 +61,10 @@ Output defaults to `${DATA_PIPELINE_DATA_ROOT}/data-pipeline/eda/field-eda/<run-
 │   ├── F4-cdl-composition.png
 │   ├── F5-weather-climatology.png
 │   ├── F6-weather-precip-vs-gdd.png
-│   └── F7-geospatial-field-map.png
+│   ├── F7-geospatial-field-map.png
+│   ├── F8-weather-field-year.png
+│   ├── F9-cdl-crop-classes-by-grower.png
+│   └── F10-boundaries-cdl-diversity.png
 ├── tables/
 │   ├── field-metrics.csv
 │   ├── stats-boundaries.csv
@@ -98,6 +104,15 @@ Exact columns, dtypes, and validation warnings are in
   Corn/Soybeans/Grass–Pasture are grouped as "Other"; because the CDL tables omit
   unclassified pixels, the missing share is drawn as a grey residual band and also
   written as `latest_unclassified_pct`.
+- **Class mix by grower.** F9 stacks the share of CDL-classified pixels per grower and
+  year. `pixel_count` is the exclusive unit where the producer ships it, so a pixel is
+  never counted in two classes and the unclassified residual is simply absent from the
+  denominator; the per-year shares are then averaged for `stats-cdl.csv`.
+- **Class diversity.** Distinct classes per field-year is a different quantity from
+  rotation diversity: it counts the `crop_name` rows present in a single year, not the
+  variety of the five-year dominant-crop sequence. It is counted twice, at `>0%`
+  (literal) and `>=1%` (drops one- or two-pixel edge slivers), because the literal count
+  is sensitive to those slivers.
 - **Weather.** Growing season is April 1–October 31. GDD uses base 10 °C with a 30 °C
   cap. Monthly precipitation is summed per field-month first and then averaged across
   the co-located fields, so a shared climate grid is not counted ten times.
@@ -127,9 +142,9 @@ Every figure is reviewed against the repository's five-point vision gate before 
 accepted: no empty panels, a correct field-map frame on F7 (local-metre axes,
 auto-rotation, north arrow, basemap under), legible labels at README size, color
 semantics matching the data type, and a title/annotation set that reads without the
-surrounding prose. The current verdict for all seven figures, including the defects
+surrounding prose. The current verdict for all ten figures, including the defects
 found and fixed during review (F4 label overlap, F5 10× precipitation aggregation, F7
-axis collapse and halo scaling), is recorded in
+axis collapse and halo scaling, F9 legend collision, F10 hidden points), is recorded in
 [references/figure-specs.md](references/figure-specs.md).
 
 ## Scope and non-goals

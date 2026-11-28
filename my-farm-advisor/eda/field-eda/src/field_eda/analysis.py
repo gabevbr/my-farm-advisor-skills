@@ -10,6 +10,8 @@ import pandas as pd
 from .loaders import FarmData
 from .metrics import (
     boundary_metrics,
+    class_diversity_per_field_year,
+    class_share_by_grower_year,
     continuous_corn,
     dominant_crop,
     natural_key,
@@ -74,6 +76,7 @@ def assemble(farms: list[FarmData]) -> Dataset:
                 )
 
         dominant = dominant_crop(farm.cdl)
+        diversity = class_diversity_per_field_year(farm.cdl)
         all_years = sorted(dominant["year"].unique().tolist()) if not dominant.empty else []
 
         season = weather_season_stats(farm.weather)
@@ -104,6 +107,11 @@ def assemble(farms: list[FarmData]) -> Dataset:
             )
 
             field_season = season[season["field_id"] == field_id] if not season.empty else season
+            field_diversity = (
+                diversity[diversity["field_id"] == field_id]
+                if not diversity.empty
+                else diversity
+            )
             means = {
                 "season_precip_mm_mean": field_season["season_precip_mm"].mean(),
                 "annual_precip_mm_mean": field_season["annual_precip_mm"].mean(),
@@ -111,6 +119,11 @@ def assemble(farms: list[FarmData]) -> Dataset:
                 "season_mean_temp_c_mean": field_season["season_mean_temp_c"].mean(),
                 "hot_days_mean": field_season["season_hot_days"].mean(),
                 "weather_years": field_season["year"].nunique(),
+                "distinct_classes_mean": field_diversity["distinct_classes"].mean(),
+                "distinct_classes_1pct_mean": field_diversity[
+                    "distinct_classes_1pct"
+                ].mean(),
+                "diversity_years": field_diversity["year"].nunique(),
             }
 
             row = {
@@ -231,8 +244,12 @@ def boundary_stats(fields: pd.DataFrame) -> pd.DataFrame:
     return _frame(rows)
 
 
-def cdl_stats(fields: pd.DataFrame) -> pd.DataFrame:
-    """A2: rotation diversity across growers plus continuous-corn counts."""
+def cdl_stats(fields: pd.DataFrame, cdl: pd.DataFrame | None = None) -> pd.DataFrame:
+    """A2: rotation diversity across growers plus continuous-corn counts.
+
+    Also carries A4 (field size vs distinct-class diversity) and the class-share
+    summary behind F9, because all three are CDL questions.
+    """
     rows: list[dict] = []
     if fields.empty:
         return _frame(rows)
@@ -298,6 +315,75 @@ def cdl_stats(fields: pd.DataFrame) -> pd.DataFrame:
             significant=bool(pair["significant_holm"]),
             notes="Holm-adjusted; diversity computed from the dominant sequence",
         ))
+
+    if cdl is not None:
+        shares = class_share_by_grower_year(cdl, fields)
+        means = (
+            shares.groupby(["grower_name", "crop_group"], as_index=False).agg(
+                mean_pct=("pct", "mean"),
+                years=("year", "nunique"),
+                unit=("unit", "first"),
+            )
+            if not shares.empty
+            else shares
+        )
+        for record in means.to_dict("records"):
+            rows.append(_blank_row(
+                analysis="class-share",
+                grouping="grower_name",
+                comparison=f"{record['grower_name']}: {record['crop_group']}",
+                test="mean-share",
+                n=int(record["years"]),
+                statistic=float(record["mean_pct"]),
+                effect_metric="percent_of_classified_pixels",
+                notes=(
+                    f"mean of {int(record['years'])} grower-year shares, unit="
+                    f"{record['unit']}; unclassified CDL pixels are not in the denominator"
+                ),
+            ))
+
+    # A4: does field size predict how many crop classes show up in a field-year?
+    # The literal count and the >=1% sensitivity are both reported because the
+    # literal count is driven by one- or two-pixel slivers on field edges.
+    for column, label in (
+        ("distinct_classes_mean", "distinct classes, any share"),
+        ("distinct_classes_1pct_mean", "distinct classes, >=1% share"),
+    ):
+        if column not in fields.columns:
+            continue
+        pooled = spearman_with_ci(fields["area_ha"], fields[column])
+        rows.append(_blank_row(
+            analysis="correlation",
+            grouping="all growers",
+            comparison=f"area_ha vs {label}",
+            test="spearman",
+            n=pooled["n"],
+            statistic=pooled["rho"],
+            p_value=pooled["p_value"],
+            effect_size=pooled["rho"],
+            effect_metric="rho",
+            notes=(
+                f"30 fields, one point per field (mean over 5 CDL years); bootstrap "
+                f"95% CI [{pooled['ci_low']:.2f}, {pooled['ci_high']:.2f}]"
+            ),
+        ))
+        for grower, group in fields.groupby("grower_name", sort=True):
+            result = spearman_with_ci(group["area_ha"], group[column])
+            rows.append(_blank_row(
+                analysis="correlation",
+                grouping="grower_name",
+                comparison=f"{grower}: area_ha vs {label}",
+                test="spearman",
+                n=result["n"],
+                statistic=result["rho"],
+                p_value=result["p_value"],
+                effect_size=result["rho"],
+                effect_metric="rho",
+                notes=(
+                    "n=10 fields; a pooled positive sign can be a between-grower "
+                    "contrast, so read this row against the pooled one"
+                ),
+            ))
     return _frame(rows)
 
 

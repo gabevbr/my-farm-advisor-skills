@@ -21,7 +21,10 @@ from field_eda.metrics import (  # noqa: E402
     SEASON_END_MD,
     SEASON_START_MD,
     boundary_metrics,
+    class_diversity_per_field_year,
+    class_share_by_grower_year,
     continuous_corn,
+    crop_group,
     daily_gdd,
     dominant_crop,
     is_growing_season,
@@ -100,6 +103,68 @@ def test_natural_key_orders_numbers() -> None:
     assert sorted(ids, key=natural_key) == ["il-r1", "il-r2", "il-r10"]
 
 
+def test_class_diversity_counts_distinct_classes_per_field_year() -> None:
+    cdl = pd.DataFrame(
+        {
+            "field_id": ["a", "a", "a", "b", "b"],
+            "year": [2023, 2023, 2023, 2023, 2023],
+            "crop_name": ["Corn", "Soybeans", "Forest", "Corn", "Fallow/Idle"],
+            "pct": [91.0, 6.0, 3.0, 99.4, 0.6],
+        }
+    )
+    diversity = class_diversity_per_field_year(cdl)
+    first = diversity[diversity["field_id"] == "a"].iloc[0]
+    assert first["distinct_classes"] == 3
+    assert first["distinct_classes_1pct"] == 3  # Forest is 3%, so it clears the floor
+
+    second = diversity[diversity["field_id"] == "b"].iloc[0]
+    assert second["distinct_classes"] == 2
+    # A 0.6% sliver is excluded by the 1% floor, which is the whole point of it.
+    assert second["distinct_classes_1pct"] == 1
+
+
+def test_class_diversity_keeps_empty_field_years() -> None:
+    cdl = pd.DataFrame(
+        {
+            "field_id": ["a", "a"],
+            "year": [2023, 2023],
+            "crop_name": ["Corn", "Soybeans"],
+            "pct": [np.nan, np.nan],
+        }
+    )
+    diversity = class_diversity_per_field_year(cdl)
+    # No class clears any floor, but the field-year must still be reported.
+    assert list(diversity["field_id"]) == ["a"]
+    assert int(diversity["distinct_classes"].iloc[0]) == 0
+
+
+def test_crop_group_collapses_long_tail() -> None:
+    assert crop_group("Corn") == "Corn"
+    assert crop_group("Grass/Pasture") == "Grass/Pasture"
+    assert crop_group("Forest") == "Other"
+    assert crop_group("Winter Wheat") == "Other"
+
+
+def test_class_share_by_grower_year_is_exclusive() -> None:
+    cdl = pd.DataFrame(
+        {
+            "field_id": ["a", "a", "a", "b", "b"],
+            "year": [2023, 2023, 2023, 2023, 2023],
+            "crop_name": ["Corn", "Soybeans", "Forest", "Corn", "Forest"],
+            "pct": [70.0, 20.0, 10.0, 60.0, 40.0],
+            "pixel_count": [70, 20, 10, 60, 40],
+        }
+    )
+    fields = pd.DataFrame({"field_id": ["a", "b"], "grower_name": ["G", "G"]})
+    shares = class_share_by_grower_year(cdl, fields)
+
+    total = shares[shares["year"] == 2023]["pct"].sum()
+    assert abs(total - 100.0) < 1e-9
+    corn = shares[(shares["year"] == 2023) & (shares["crop_group"] == "Corn")]
+    assert abs(float(corn["pct"].iloc[0]) - 65.0) < 1e-9
+    assert set(shares["unit"]) == {"pixel_count"}
+
+
 if __name__ == "__main__":
     test_compactness_of_square_is_one()
     test_shannon_diversity()
@@ -108,4 +173,8 @@ if __name__ == "__main__":
     test_season_mask()
     test_dominant_crop_and_margin()
     test_natural_key_orders_numbers()
+    test_class_diversity_counts_distinct_classes_per_field_year()
+    test_class_diversity_keeps_empty_field_years()
+    test_crop_group_collapses_long_tail()
+    test_class_share_by_grower_year_is_exclusive()
     print("ok")

@@ -284,6 +284,14 @@ def _load_cdl(farm_dir: Path, fields: gpd.GeoDataFrame, warnings: list[str]):
     cdl["field_id"] = cdl["field_id"].astype(str)
     cdl["year"] = cdl["year"].astype(int)
 
+    # pixel_count is the exclusive unit for the class-share figure when the
+    # producer ships it; the required contract stays the four CDL_COLUMNS.
+    keep = list(CDL_COLUMNS)
+    if "pixel_count" in cdl.columns:
+        cdl["pixel_count"] = pd.to_numeric(cdl["pixel_count"], errors="coerce")
+        keep.append("pixel_count")
+    cdl = cdl[keep]
+
     years = sorted(cdl["year"].unique().tolist())
     boundary_ids = set(fields["field_id"])
     per_field_years = cdl.groupby("field_id")["year"].nunique()

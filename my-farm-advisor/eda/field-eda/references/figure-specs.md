@@ -1,9 +1,10 @@
 # Field EDA Figure Specifications
 
-Seven static figures: two per category (boundaries, CDL, weather) plus one geospatial
-map. Each section states the question, the encoding, the story the figure is meant to
-tell, the caveat a reader must carry, and the review verdict from the 2026-11-27/28
-render pass.
+Ten static figures: two per required category (boundaries, CDL, weather), one geospatial
+map, and three follow-ups that answer the field-year weather, crop-class-mix, and
+field-size-vs-diversity questions. Each section states the question, the encoding, the
+story the figure is meant to tell, the caveat a reader must carry, and the review verdict
+from the 2026-11-28 render pass.
 
 All figures are 200 dpi PNGs, Agg backend, Okabe–Ito palette. Grower colors are keyed to
 state: Illinois `#0072B2`, Iowa `#D55E00`, Nebraska `#009E73`.
@@ -182,14 +183,112 @@ dropped because the axis note already carries the tilt, and per-field IDs were r
 after they failed the README legibility check. The final panel keeps 15% viewport
 padding, local metre axes, per-panel north arrows, and a legible crop legend.
 
+## F8 — Season weather per field and year
+
+**File:** `F8-weather-field-year.png`
+
+**Question.** How did each sampled field's growing season move across 2021–2025, and how
+do the ten fields inside one grower compare with each other?
+
+**Encoding.** Two heatmaps sharing a row axis. Rows are the 30 fields, grouped by grower
+and separated by a rule with a rotated grower label; columns are the five years. Left
+panel: growing-season precipitation (mm) on a sequential blue ramp. Right panel:
+growing-season GDD (°C) on a sequential orange ramp. Every cell is annotated with its
+value, and each panel carries its own continuous colorbar.
+
+**Story.** The year-to-year signal dominates: Illinois swings from 524 mm (2023) to
+817 mm (2021) and Nebraska from 378 mm (2023) to 620 mm (2025), while GDD moves much
+less in percentage terms. The grower differences are a level shift, not a shape change —
+Nebraska is the hottest block (2,007–2,170 GDD) and Iowa the coolest. Within a grower,
+rows differ by tens of millimetres rather than hundreds: the fields sample only a few
+model grid cells, so a field's weather is close to its neighbours' but not identical.
+
+**Caveat.** This is a field-level *display*, not field-level independent climate
+evidence. The effective climate sample is five years per grower, so read the columns as
+the real replicates and the rows as a map of where each field sits inside its grower's
+climate. Two neighbouring rows looking alike is the expected result, not a data error.
+
+**Verdict.** Pass after fix. The first render packed the shared precipitation colorbar
+against the GDD panel, leaving its tick labels almost touching the panel edge; the pad
+was widened so both colorbars and both annotation sets read cleanly at README size.
+Continuous quantities use sequential ramps, and no categorical color is used as a ramp.
+
+## F9 — CDL crop-class composition by grower
+
+**File:** `F9-cdl-crop-classes-by-grower.png`
+
+**Question.** How is each grower's cropland split across CDL crop classes, year by year
+across 2019–2023?
+
+**Encoding.** One panel per grower, five 100% stacked bars (one per CDL year), stacked in
+the fixed crop palette: Corn, Soybeans, Grass/Pasture, Other CDL classes. Segment labels
+print for any class covering at least 8% of the grower-year. Shares are computed from
+`pixel_count` inside each grower-year, so a pixel is counted once and the unclassified
+residual is excluded from the denominator.
+
+**Story.** All three growers run a corn–soybean system, but with different rhythms.
+Illinois is a strict 80/20 alternation — 80% corn in odd years, 30% in even years. Iowa
+alternates too, but from the other side: 21% corn in 2019, 79% in 2020, and 69% in
+2022. Nebraska is the least regular: a stable 50/50 split in 2019, 2021 and 2023, 79%
+corn in 2022, and a 98% corn year in 2020. Across the five years, mean corn share is 66%
+in Nebraska, 60% in Illinois and 46% in Iowa.
+
+**Caveat.** Shares are of *classified* CDL pixels; the 1–3% unclassified residual is
+absent rather than grey, so the stack is a composition of what CDL labelled, not of the
+whole field. Grass/Pasture and Other CDL classes never exceed 1.0% in any grower-year and
+are therefore invisible as slivers — the exact per-grower means are in
+`stats-cdl.csv` (`analysis=class-share`). Pixel shares are area-weighted, so one large
+field can dominate a grower-year; this is intentional, but it is not a field count.
+
+**Verdict.** Pass after fix. The first render put the legend on top of the `CDL year`
+axis labels in the middle panel; the axis label was dropped (the years are self-evident)
+and the legend moved below the panels. The grey class was also relabelled from
+"Other / unclassified" to "Other CDL classes", because in this figure the unclassified
+residual is excluded, not grey.
+
+## F10 — Field size vs CDL class diversity
+
+**File:** `F10-boundaries-cdl-diversity.png`
+
+**Question.** Do larger fields carry more CDL crop classes, and does that survive a
+sensible minimum-share floor?
+
+**Encoding.** Two scatter panels sharing the field-area x-axis, one point per field
+(mean over five CDL years), colored by grower. Left: distinct classes at any share.
+Right: distinct classes covering at least 1% of the field. Each panel annotates the
+pooled Spearman rho with p and n, plus the per-grower rho.
+
+**Story.** The literal count is a weak, non-significant positive trend (pooled
+`rho = 0.34`, `p = 0.069`, `n = 30`), and it is a between-grower contrast rather than a
+field-size effect: Illinois has both the larger fields and the higher class counts, but
+its within-grower rho is `-0.05`. Iowa (`0.51`) and Nebraska (`0.59`) show positive
+within-grower values that do not survive at n = 10. Once edge slivers are removed the
+relationship disappears (`rho = 0.07`, `p = 0.72`), so the literal count is mostly
+one- and two-pixel neighbours, not real crop mix.
+
+**Caveat.** A field's class count is a property of CDL labelling as much as of the field:
+a field that straddles a road or a neighbouring crop picks up classes that are not
+management decisions. Ten fields per grower is too few for a confident per-grower
+slope. This figure reports a negative result; it is not evidence that field size has no
+effect in general.
+
+**Verdict.** Pass after fix. The first render hid the largest Illinois field and two
+Nebraska fields behind the annotation boxes, and printed panel subtitles across the
+bottom row of points. The boxes now sit where each panel is empty (lower right on the
+left panel, upper left with reserved headroom on the right), and the subtitles were
+folded into the title and footnote.
+
 ## Cross-figure conventions
 
-- Corn `#E69F00`, Soybeans `#56B4E9`, Grass/Pasture `#009E73`, Other/unclassified
-  `#B0B0B0`, no data white with a grey edge.
+- Corn `#E69F00`, Soybeans `#56B4E9`, Grass/Pasture `#009E73`, Other `#B0B0B0`, no data
+  white with a grey edge. The grey means "unclassified residual" only in F3/F4; in F9 it
+  is "Other CDL classes" and the residual is excluded, so the legend label changes with
+  the meaning.
 - Grower colors follow state, not alphabetical order, so a grower keeps one color across
-  F1, F2, F5, and F6. F7 uses the crop palette because panels are already separated by
-  grower.
+  F1, F2, F5, F6, F8 and F10. F7 and F9 use the crop palette because panels are already
+  separated by grower.
 - No figure uses a continuous colormap for a categorical variable, and no figure uses a
-  categorical palette for a continuous variable.
+  categorical palette for a continuous variable. F8 is the only figure with continuous
+  ramps (precipitation, GDD), and both are sequential and colorbar-labelled.
 - Grid lines are light grey and sit below the data; top and right spines are removed on
   non-grid figures. F7 keeps metre tick axes because distance is read from them.

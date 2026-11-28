@@ -32,6 +32,15 @@ Working rules for agents editing or running this subtree.
   add per-field ID labels unless the layout is redesigned for legibility. Keep the local
   metre axes, per-panel north arrow, and basemap fallback; a tile failure must never
   break the run.
+- **Keep the two diversity measures distinct.** `rotation_diversity` (Shannon over the
+  dominant 5-year sequence) and `distinct_classes_mean` (classes present in one
+  field-year) answer different questions. Do not merge them, and do not drop the
+  `>=1%` sensitivity: the literal count is driven by a handful of edge pixels.
+- **Do not let a stats box cover data.** F10 places each annotation where its panel is
+  empty and reserves vertical room for it; re-check both panels when changing limits.
+- **F9 is a categorical chart.** Stack class shares with the fixed crop palette and keep
+  the `Other CDL classes` grey distinct from the unclassified residual, which is
+  excluded from the denominator.
 - **Keep p-values descriptive.** Small groups, multiple contrasts, and selection bias
   mean a p-value is evidence about this sample, not a population test.
 

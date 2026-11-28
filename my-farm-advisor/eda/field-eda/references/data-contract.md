@@ -69,8 +69,10 @@ All `derived/tables/*_<year>_cdl.csv` files (long format). Required columns:
 field_id, year, crop_name, pct
 ```
 
-Additional shipped columns (`crop_code`, `pixel_count`, `crop_source`) are preserved but
-not required. Years are the inference unit; the subskill does not interpolate missing
+Additional shipped columns (`crop_code`, `pixel_count`, `crop_source`) are optional.
+`pixel_count` is kept when present because F9 uses it as the exclusive share unit and
+the class-share rows in `stats-cdl.csv` record it as `unit`; the other extras are
+dropped. Years are the inference unit; the subskill does not interpolate missing
 years. A field missing a year that other fields have warns.
 
 **Unclassified residual.** The per-year tables omit unclassified pixels, so `pct` sums
@@ -100,6 +102,7 @@ One row per field. Columns:
 | Identity | `grower_slug`, `grower_name`, `farm_slug`, `farm_name`, `state`, `county`, `field_id`, `csb_id`, `crop_2025` |
 | Boundary | `area_ha`, `area_proj_ha`, `perimeter_m`, `compactness`, `vertices`, `multipart` |
 | Rotation | `rotation_years`, `rotation_sequence`, `rotation_diversity`, `continuous_corn`, `latest_cdl_year`, `latest_crop`, `latest_purity_pct`, `latest_unclassified_pct`, `cdl_years_available` |
+| Class diversity | `distinct_classes_mean`, `distinct_classes_1pct_mean`, `diversity_years` |
 | Weather means | `season_precip_mm_mean`, `annual_precip_mm_mean`, `season_gdd_c_mean`, `season_mean_temp_c_mean`, `hot_days_mean`, `weather_years` |
 | Sequence | `crop_<year>` for each CDL year (for example `crop_2019` … `crop_2023`) |
 
@@ -110,6 +113,10 @@ Notes:
 - `compactness` is `4πA/P²`, clipped to `[0, 1]`; square = `π/4`, circle = 1.
 - `rotation_diversity` is Shannon over the dominant-crop sequence, `0` for a constant
   sequence.
+- `distinct_classes_mean` is the mean, over the field's CDL years, of how many
+  `crop_name` rows were present in that field-year at any share; `_1pct_mean` applies a
+  `>=1%` floor to drop one- or two-pixel edge slivers. These count classes inside a
+  single year and are therefore not the same as `rotation_diversity`.
 - `crop_2025` is the boundary's current-crop attribute. In the Assignment 2 dataset it
   matches the 2023 CDL dominant crop on all 30 fields; it is not a CDL year and is
   deliberately excluded from the F3 heatmap.
@@ -130,7 +137,13 @@ pairwise Mann–Whitney contrasts with Holm-adjusted p-values.
 ### `tables/stats-cdl.csv`
 
 Same schema. Rows: per-grower rotation-diversity summaries, continuous-corn counts and
-shares, a Kruskal–Wallis omnibus, and pairwise Mann–Whitney contrasts.
+shares, a Kruskal–Wallis omnibus, and pairwise Mann–Whitney contrasts. Also carries:
+
+- `analysis=class-share` — mean grower-year share of CDL-classified pixels for Corn,
+  Soybeans, Grass/Pasture and Other (`statistic` is the percent, `n` the years averaged,
+  `effect_metric=percent_of_classified_pixels`, notes record the share `unit`).
+- `analysis=correlation` (A4) — Spearman of field area against the mean distinct-class
+  count, pooled and per grower, at both the literal and `>=1%` floors.
 
 ### `tables/stats-weather.csv`
 
@@ -144,6 +157,15 @@ One panel per farm, built from the boundary file alone. The panel uses a local U
 frame and an Esri World Imagery basemap fetched at render time. If the basemap fetch
 fails, the panel keeps a plain background and the run continues; the manifest still
 lists the figure.
+
+### `figures/F8`–`F10`
+
+- `F8-weather-field-year.png` — built from the field-year weather table (one row per
+  field-year), not the raw daily rows.
+- `F9-cdl-crop-classes-by-grower.png` — built from the concatenated CDL long tables;
+  needs `pixel_count` for an exclusive unit and falls back to `pct` when absent.
+- `F10-boundaries-cdl-diversity.png` — built from the field table, so it requires the
+  `distinct_classes_*_mean` columns to be present.
 
 ### `manifest.json`
 

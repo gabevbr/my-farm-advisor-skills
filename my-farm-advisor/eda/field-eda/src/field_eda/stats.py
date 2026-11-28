@@ -107,6 +107,14 @@ def spearman_with_ci(x, y, *, seed: int = 20261127, iterations: int = 2000) -> d
             index = rng.integers(0, n, n)
             if len(np.unique(index)) < 3:
                 continue
+            # A resample can draw one repeated value for a coarse column such as
+            # the distinct-class count; rho is undefined there, so skip the draw
+            # instead of letting scipy emit a constant-input warning.
+            if (
+                len(np.unique(x_values[index])) < 2
+                or len(np.unique(y_values[index])) < 2
+            ):
+                continue
             draw = scipy_stats.spearmanr(x_values[index], y_values[index]).statistic
             if np.isfinite(draw):
                 draws.append(float(draw))

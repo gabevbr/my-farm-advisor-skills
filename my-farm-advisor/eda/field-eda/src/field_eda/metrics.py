@@ -80,6 +80,92 @@ def dominant_crop(cdl: pd.DataFrame):
     return top[["field_id", "year", "crop_name", "pct", "pct_next", "margin_pct"]]
 
 
+# Two share floors for the distinct-class count. 0 counts every class the CDL
+# table lists; 1% drops edge slivers that are one or two pixels of a neighbouring
+# field. Both are reported because the literal count is sensitive to those slivers.
+DIVERSITY_FLOORS = (("distinct_classes", 0.0), ("distinct_classes_1pct", 1.0))
+
+
+CROP_GROUPS = ("Corn", "Soybeans", "Grass/Pasture")
+
+
+def crop_group(name) -> str:
+    """Collapse the CDL long tail into the four classes the figures colour."""
+    value = str(name)
+    return value if value in CROP_GROUPS else "Other"
+
+
+def class_share_by_grower_year(cdl: pd.DataFrame, fields: pd.DataFrame) -> pd.DataFrame:
+    """Share of classified CDL pixels per grower, year, and crop group.
+
+    Computed inside each grower-year, so a year with more field rows cannot
+    dominate. ``pixel_count`` is the exclusive unit when the producer ships it:
+    every pixel is counted once, and the unclassified residual is simply absent
+    from the denominator rather than being assigned to a class.
+    """
+    columns = ["grower_name", "year", "crop_group", "pct", "unit"]
+    if cdl.empty or fields.empty:
+        return pd.DataFrame(columns=columns)
+
+    mapping = fields.set_index("field_id")["grower_name"]
+    frame = cdl.copy()
+    frame["grower_name"] = frame["field_id"].map(mapping)
+    frame = frame.dropna(subset=["grower_name"])
+    unit = "pixel_count" if "pixel_count" in frame.columns else "pct"
+    frame["crop_group"] = frame["crop_name"].map(crop_group)
+
+    grouped = (
+        frame.groupby(["grower_name", "year", "crop_group"])[unit]
+        .sum()
+        .rename("value")
+        .reset_index()
+    )
+    totals = grouped.groupby(["grower_name", "year"])["value"].transform("sum")
+    out = grouped.assign(pct=grouped["value"] / totals * 100.0, unit=unit)
+
+    # Complete the grower-year x class grid: a class with no pixels in one year
+    # is a zero share, not a missing year to be dropped from the mean.
+    grid = pd.MultiIndex.from_product(
+        [
+            sorted(out["grower_name"].unique()),
+            sorted(out["year"].unique()),
+            list(CROP_GROUPS) + ["Other"],
+        ],
+        names=["grower_name", "year", "crop_group"],
+    )
+    out = out.set_index(["grower_name", "year", "crop_group"]).reindex(grid)
+    out["pct"] = out["pct"].fillna(0.0)
+    out["unit"] = out["unit"].fillna(unit)
+    return out.reset_index()[columns].sort_values(
+        ["grower_name", "year", "crop_group"]
+    ).reset_index(drop=True)
+
+
+def class_diversity_per_field_year(cdl: pd.DataFrame) -> pd.DataFrame:
+    """Distinct CDL classes per field-year, at the 0% and 1% share floors.
+
+    A "class" is one ``crop_name`` row in the per-year CDL table whose share of
+    the field is above the floor. This counts classes present in a single year,
+    which is a different quantity from ``sequence_diversity`` (variety across the
+    dominant 5-year sequence).
+    """
+    columns = ["field_id", "year"] + [name for name, _ in DIVERSITY_FLOORS]
+    if cdl.empty:
+        return pd.DataFrame(columns=columns)
+
+    out = cdl[["field_id", "year"]].drop_duplicates().reset_index(drop=True)
+    for name, floor in DIVERSITY_FLOORS:
+        counts = (
+            cdl.loc[cdl["pct"] > floor]
+            .groupby(["field_id", "year"])["crop_name"]
+            .nunique()
+            .rename(name)
+        )
+        out = out.merge(counts, on=["field_id", "year"], how="left")
+        out[name] = out[name].fillna(0).astype(int)
+    return out.sort_values(["field_id", "year"]).reset_index(drop=True)
+
+
 def rotation_matrix(dominant: pd.DataFrame):
     """Field x year crop-name matrix, ready for the rotation heatmap."""
     if dominant.empty:

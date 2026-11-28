@@ -11,11 +11,14 @@ import pandas as pd
 from .analysis import assemble, boundary_stats, cdl_stats, weather_stats
 from .figures import (
     figure_area_by_grower,
+    figure_cdl_class_by_grower,
     figure_climatology,
     figure_composition,
     figure_precip_vs_gdd,
     figure_rotation_heatmap,
     figure_shape_vs_area,
+    figure_size_vs_diversity,
+    figure_weather_field_year,
 )
 from .figures_map import figure_field_map
 from .loaders import LoadError, discover_farms, resolve_data_root
@@ -93,6 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     figures_dir = out_root / "figures"
     tables_dir.mkdir(parents=True, exist_ok=True)
 
+    cdl_long = pd.concat([farm.cdl for farm in farms], ignore_index=True)
+    weather_long = pd.concat([farm.weather for farm in farms], ignore_index=True)
+
     tables: list[Path] = []
     field_metrics = tables_dir / "field-metrics.csv"
     dataset.fields.to_csv(field_metrics, index=False)
@@ -100,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, frame in (
         ("stats-boundaries.csv", boundary_stats(dataset.fields)),
-        ("stats-cdl.csv", cdl_stats(dataset.fields)),
+        ("stats-cdl.csv", cdl_stats(dataset.fields, cdl_long)),
         ("stats-weather.csv", weather_stats(dataset.field_years, dataset.fields)),
     ):
         path = tables_dir / name
@@ -109,8 +115,6 @@ def main(argv: list[str] | None = None) -> int:
 
     figures: list[Path] = []
     if not args.no_figures:
-        cdl_long = pd.concat([farm.cdl for farm in farms], ignore_index=True)
-        weather_long = pd.concat([farm.weather for farm in farms], ignore_index=True)
         cdl_years = sorted(int(year) for year in cdl_long["year"].unique())
         figures = [
             figure_area_by_grower(dataset.fields, figures_dir / "F1-boundaries-area-by-grower.png"),
@@ -124,6 +128,17 @@ def main(argv: list[str] | None = None) -> int:
             figure_climatology(dataset.fields, weather_long, figures_dir / "F5-weather-climatology.png"),
             figure_precip_vs_gdd(dataset.field_years, figures_dir / "F6-weather-precip-vs-gdd.png"),
             figure_field_map(farms, dataset.fields, figures_dir / "F7-geospatial-field-map.png"),
+            figure_weather_field_year(
+                dataset.field_years,
+                dataset.fields,
+                figures_dir / "F8-weather-field-year.png",
+            ),
+            figure_cdl_class_by_grower(
+                cdl_long, dataset.fields, figures_dir / "F9-cdl-crop-classes-by-grower.png"
+            ),
+            figure_size_vs_diversity(
+                dataset.fields, figures_dir / "F10-boundaries-cdl-diversity.png"
+            ),
         ]
 
     payload = build_manifest(
